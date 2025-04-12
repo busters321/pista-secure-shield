@@ -24,55 +24,55 @@ const Dashboard = () => {
       icon: Shield,
       title: "AI Scam Intelligence",
       description: "Detect scams using text, links, or screenshots",
-      path: "#"
+      path: "/scam-intelligence"
     },
     {
       icon: Link,
       title: "Deep Link Inspection",
       description: "Analyze URLs for safety and behavior",
-      path: "#"
+      path: "/link-inspection"
     },
     {
       icon: Mail,
       title: "Email Threat Scanner",
       description: "Check emails for phishing and spoofing",
-      path: "#"
+      path: "/email-scanner"
     },
     {
       icon: MessageCircle,
       title: "Cyber Copilot Chat",
       description: "Get AI security advice and answers",
-      path: "#"
+      path: "/cyber-copilot"
     },
     {
       icon: Globe,
       title: "SafeView Browser",
       description: "Browse securely in a sandbox environment",
-      path: "#"
+      path: "/safe-view"
     },
     {
       icon: Instagram,
       title: "Social Media Protection",
       description: "Detect fake profiles and scam accounts",
-      path: "#"
+      path: "/social-protection"
     },
     {
       icon: Key,
       title: "Password Risk Checker",
       description: "Check if your passwords have been leaked",
-      path: "#"
+      path: "/password-checker"
     },
     {
       icon: FileText,
       title: "Scam Report Generator",
       description: "Create and send scam reports easily",
-      path: "#"
+      path: "/scam-report"
     },
     {
       icon: BarChart3,
       title: "Live Threat Feed",
       description: "See real-time scam trends and alerts",
-      path: "#"
+      path: "/threat-feed"
     }
   ];
 
@@ -101,6 +101,7 @@ const Dashboard = () => {
                 <Button 
                   variant="outline" 
                   className="w-full hover:bg-pistachio/10 hover:text-pistachio"
+                  onClick={() => navigate(feature.path)}
                 >
                   Launch Tool
                 </Button>
