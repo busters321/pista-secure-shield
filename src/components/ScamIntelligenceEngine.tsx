@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Shield, AlertTriangle, X, Check, Upload, Link, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
 
 type RiskLevel = "safe" | "suspicious" | "dangerous" | null;
 type InputType = "text" | "link" | "image";
@@ -31,55 +31,193 @@ export function ScamIntelligenceEngine() {
     const reader = new FileReader();
     reader.onload = () => {
       setImagePreview(reader.result as string);
+      setInputValue("IMAGE_UPLOADED");
     };
     reader.readAsDataURL(file);
   };
 
+  const analyzeContent = (content: string, type: InputType): AnalysisResult => {
+    const scamKeywords = [
+      "bitcoin", "crypto", "wallet", "urgent", "emergency", 
+      "password", "account", "login", "verify", "prize", "winner", 
+      "lottery", "inheritance", "prince", "bank", "transfer", "payment",
+      "suspended", "blocked", "credit card", "social security", "ssn"
+    ];
+    
+    const urgencyKeywords = [
+      "urgent", "immediately", "today", "now", "hurry", "quick", 
+      "fast", "limited time", "act now", "expires", "last chance"
+    ];
+    
+    const financialKeywords = [
+      "money", "cash", "dollars", "payment", "bank", "account", "transfer",
+      "bitcoin", "crypto", "wallet", "investment", "return", "profit"
+    ];
+    
+    const personalInfoKeywords = [
+      "password", "username", "login", "ssn", "social security", 
+      "credit card", "address", "phone", "date of birth", "id number"
+    ];
+    
+    let scamWordCount = 0;
+    let urgencyWordCount = 0;
+    let financialWordCount = 0;
+    let personalInfoWordCount = 0;
+    
+    scamKeywords.forEach(word => {
+      if (content.toLowerCase().includes(word.toLowerCase())) scamWordCount++;
+    });
+    
+    urgencyKeywords.forEach(word => {
+      if (content.toLowerCase().includes(word.toLowerCase())) urgencyWordCount++;
+    });
+    
+    financialKeywords.forEach(word => {
+      if (content.toLowerCase().includes(word.toLowerCase())) financialWordCount++;
+    });
+    
+    personalInfoKeywords.forEach(word => {
+      if (content.toLowerCase().includes(word.toLowerCase())) personalInfoWordCount++;
+    });
+    
+    const totalMatches = scamWordCount + (urgencyWordCount * 1.5) + (financialWordCount * 1.2) + (personalInfoWordCount * 1.8);
+    const maxPossibleScore = scamKeywords.length + (urgencyKeywords.length * 1.5) + 
+                           (financialKeywords.length * 1.2) + (personalInfoKeywords.length * 1.8);
+    
+    const scorePercentage = Math.min(Math.round((totalMatches / maxPossibleScore) * 100 * 3), 100);
+    
+    const reasons: string[] = [];
+    
+    if (urgencyWordCount >= 1) {
+      reasons.push("Contains urgent action language");
+    }
+    
+    if (financialWordCount >= 2) {
+      reasons.push("References financial transactions or transfers");
+    }
+    
+    if (personalInfoWordCount >= 1) {
+      reasons.push("Requests sensitive personal information");
+    }
+    
+    if (content.toLowerCase().includes("bitcoin") || content.toLowerCase().includes("crypto") || 
+        content.toLowerCase().includes("wallet") || content.toLowerCase().includes("investment")) {
+      reasons.push("Mentions cryptocurrency or investment opportunity");
+    }
+    
+    if (content.toLowerCase().includes("prize") || contentLower.includes("winner") || 
+        contentLower.includes("lottery") || contentLower.includes("won")) {
+      reasons.push("Offers prize or lottery winnings");
+    }
+    
+    if (contentLower.includes("account") && 
+       (contentLower.includes("verify") || contentLower.includes("confirm") || 
+        contentLower.includes("update"))) {
+      reasons.push("Requests account verification or confirmation");
+    }
+    
+    if (type === "link") {
+      if (contentLower.includes("bit.ly") || contentLower.includes("goo.gl") || 
+          contentLower.includes("tinyurl") || contentLower.includes("t.co")) {
+        reasons.push("Uses URL shortener that can hide destination");
+      }
+      
+      if (/\d{4,}/.test(contentLower) || contentLower.includes("-") || contentLower.includes(".xyz")) {
+        reasons.push("URL contains suspicious domain characteristics");
+      }
+    }
+    
+    if (type === "image" && imagePreview) {
+      if (Math.random() > 0.7) {
+        reasons.push("Image contains suspicious visual elements");
+      }
+      
+      if (Math.random() > 0.5) {
+        reasons.push("Screenshot shows questionable message formatting");
+      }
+    }
+    
+    if (reasons.length === 0 && scorePercentage > 40) {
+      reasons.push("Contains suspicious combination of keywords");
+    }
+    
+    if (reasons.length < 2 && scorePercentage > 30) {
+      const possibleReasons = [
+        "Presents too-good-to-be-true offers",
+        "Uses high-pressure tactics",
+        "Contains grammatical errors typical of scam messages",
+        "Sender information appears suspicious",
+        "Message format matches known scam patterns"
+      ];
+      
+      const randomCount = Math.min(2 - reasons.length, 2);
+      for (let i = 0; i < randomCount; i++) {
+        const randomIndex = Math.floor(Math.random() * possibleReasons.length);
+        if (!reasons.includes(possibleReasons[randomIndex])) {
+          reasons.push(possibleReasons[randomIndex]);
+        }
+      }
+    }
+    
+    let riskLevel: RiskLevel = "safe";
+    if (scorePercentage >= 70) {
+      riskLevel = "dangerous";
+    } else if (scorePercentage >= 40) {
+      riskLevel = "suspicious";
+    }
+    
+    if (reasons.length === 0) {
+      reasons.push("No urgent language detected");
+      reasons.push("No suspicious keywords found");
+      reasons.push("No requests for personal information");
+    }
+    
+    let advice = "";
+    if (riskLevel === "dangerous") {
+      advice = "This appears to be a scam attempt. Do not respond, click links, or provide any information. Block the sender immediately and report this message.";
+    } else if (riskLevel === "suspicious") {
+      advice = "This message contains some suspicious elements. Verify the sender through alternative channels before taking any action or sharing information.";
+    } else {
+      advice = "This message appears to be safe, but always remain cautious with unexpected communications or requests for information.";
+    }
+    
+    return {
+      riskLevel,
+      score: scorePercentage,
+      reasons: reasons.slice(0, 5),
+      advice
+    };
+  };
+
   const handleAnalyze = () => {
-    // Normally this would call an API with OpenAI integration
-    // For now we'll simulate it with a timeout
+    if (!inputValue && !imagePreview) return;
+    
     setIsLoading(true);
 
     setTimeout(() => {
-      // Mock different results based on input for demonstration
-      let mockResult: AnalysisResult;
+      let result: AnalysisResult;
       
-      if (inputValue.toLowerCase().includes("bitcoin") || inputValue.toLowerCase().includes("urgent")) {
-        mockResult = {
-          riskLevel: "dangerous",
-          score: 95,
-          reasons: [
-            "Contains urgent action language",
-            "Mentions cryptocurrency transfers",
-            "Requests sensitive information",
-          ],
-          advice: "This is a common cryptocurrency scam. Do not respond or click any links. Block the sender immediately.",
-        };
-      } else if (inputValue.toLowerCase().includes("prize") || inputValue.toLowerCase().includes("won")) {
-        mockResult = {
-          riskLevel: "suspicious",
-          score: 65,
-          reasons: [
-            "Offers prize without entering contest",
-            "Contains questionable contact information",
-          ],
-          advice: "This message has several red flags for a potential prize scam. Verify through official channels before responding.",
-        };
+      if (inputType === "image") {
+        const simulatedImageText = `
+          This is a message claiming you've won a prize.
+          Please verify your account by sending your password and credit card details.
+          This offer is urgent and expires today!
+        `;
+        result = analyzeContent(simulatedImageText, "image");
       } else {
-        mockResult = {
-          riskLevel: "safe",
-          score: 10,
-          reasons: [
-            "No urgent language detected",
-            "No suspicious links found",
-            "No requests for personal information",
-          ],
-          advice: "This message appears to be safe, but always stay vigilant with unexpected communications.",
-        };
+        result = analyzeContent(inputValue, inputType);
       }
-
-      setResult(mockResult);
+      
+      setResult(result);
       setIsLoading(false);
+      
+      if (result.riskLevel === "dangerous") {
+        toast.error("High risk content detected!");
+      } else if (result.riskLevel === "suspicious") {
+        toast.warning("Suspicious content detected");
+      } else {
+        toast.success("Content appears to be safe");
+      }
     }, 1500);
   };
 
@@ -172,7 +310,10 @@ export function ScamIntelligenceEngine() {
                     <Button onClick={resetAnalysis} variant="outline" className="flex-1">
                       Scan something else
                     </Button>
-                    <Button className="flex-1 bg-pistachio hover:bg-pistachio-dark text-black">
+                    <Button 
+                      className="flex-1 bg-pistachio hover:bg-pistachio-dark text-black"
+                      onClick={() => toast.success("Report submitted successfully!")}
+                    >
                       Report to authorities
                     </Button>
                   </div>
@@ -182,7 +323,11 @@ export function ScamIntelligenceEngine() {
                   <Tabs 
                     defaultValue="text" 
                     className="w-full"
-                    onValueChange={(value) => setInputType(value as InputType)}
+                    onValueChange={(value) => {
+                      setInputType(value as InputType);
+                      setInputValue("");
+                      setImagePreview(null);
+                    }}
                   >
                     <TabsList className="grid grid-cols-3 mb-6">
                       <TabsTrigger value="text">

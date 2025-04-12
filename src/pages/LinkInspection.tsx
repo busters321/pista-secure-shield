@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -6,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, ExternalLink, ShieldAlert, CheckCircle, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 
 type LinkAnalysisResult = {
   originalUrl: string;
@@ -23,68 +23,172 @@ const LinkInspection = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<LinkAnalysisResult | null>(null);
 
+  const validateUrl = (input: string): string => {
+    let processedUrl = input.trim();
+    
+    // Check if the URL starts with http:// or https://
+    if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+      processedUrl = 'https://' + processedUrl;
+    }
+    
+    try {
+      // This will throw an error if the URL is invalid
+      new URL(processedUrl);
+      return processedUrl;
+    } catch (e) {
+      toast.error("Please enter a valid URL");
+      return "";
+    }
+  };
+
+  const getRandomInt = (min: number, max: number) => {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  };
+  
   const handleAnalyze = () => {
     if (!url) return;
     
+    const validatedUrl = validateUrl(url);
+    if (!validatedUrl) return;
+    
     setIsLoading(true);
     
-    // Simulate API call
+    // Simulate API call with more realistic logic
     setTimeout(() => {
-      const isSuspicious = url.includes("bit.ly") || url.includes("goo.gl") || url.includes("tiny");
-      const isDangerous = url.includes("free") || url.includes("prize") || url.includes("win");
-      
-      let mockResult: LinkAnalysisResult;
-      
-      if (isDangerous) {
-        mockResult = {
-          originalUrl: url,
-          finalUrl: url.replace("bit.ly/", "malicious-site.com/"),
-          redirectCount: 3,
-          trustRating: 'dangerous',
-          score: 85,
-          reasons: [
-            "Domain registered in the last 24 hours",
-            "Multiple suspicious redirects",
-            "Contains phishing keywords",
-            "Missing SSL certificate"
-          ],
-          domainAge: "1 day",
-          ssl: false
-        };
-      } else if (isSuspicious) {
-        mockResult = {
-          originalUrl: url,
-          finalUrl: url.replace("bit.ly/", "ad-site.com/"),
-          redirectCount: 2,
-          trustRating: 'suspicious',
-          score: 45,
-          reasons: [
-            "URL shortener detected",
-            "Redirects to different domain",
-            "Domain has mixed reputation"
-          ],
-          domainAge: "3 months",
-          ssl: true
-        };
-      } else {
-        mockResult = {
-          originalUrl: url,
-          finalUrl: url,
-          redirectCount: 0,
-          trustRating: 'safe',
-          score: 15,
-          reasons: [
-            "Established domain",
-            "No suspicious redirects",
-            "Valid SSL certificate"
-          ],
-          domainAge: "5+ years",
-          ssl: true
-        };
+      // Extract domain from URL
+      let domain;
+      try {
+        domain = new URL(validatedUrl).hostname;
+      } catch (e) {
+        domain = validatedUrl;
       }
+      
+      // Define risk factors based on URL characteristics
+      const hasShortener = domain.includes("bit.ly") || domain.includes("goo.gl") || domain.includes("tinyurl") || domain.includes("t.co");
+      const hasNumbers = /\d/.test(domain);
+      const isDashSeparated = domain.includes("-");
+      const hasSuspiciousKeywords = validatedUrl.toLowerCase().includes("free") || 
+                                   validatedUrl.toLowerCase().includes("prize") || 
+                                   validatedUrl.toLowerCase().includes("win") || 
+                                   validatedUrl.toLowerCase().includes("crypto") ||
+                                   validatedUrl.toLowerCase().includes("wallet");
+      const isUncommonTLD = !domain.endsWith(".com") && 
+                           !domain.endsWith(".org") && 
+                           !domain.endsWith(".net") && 
+                           !domain.endsWith(".edu") && 
+                           !domain.endsWith(".gov");
+      
+      // Calculate risk factors count
+      const riskFactors = [hasShortener, hasNumbers, isDashSeparated, hasSuspiciousKeywords, isUncommonTLD].filter(Boolean).length;
+      
+      // Determine risk level based on factors
+      let trustRating: 'safe' | 'suspicious' | 'dangerous' = 'safe';
+      let score = 0;
+      let redirectCount = 0;
+      let reasons: string[] = [];
+      let finalUrl = validatedUrl;
+      let domainAge = "";
+      let ssl = true;
+      
+      // Popular trusted domains
+      const trustedDomains = [
+        "google.com", "youtube.com", "facebook.com", "twitter.com", "instagram.com", 
+        "linkedin.com", "amazon.com", "microsoft.com", "apple.com", "github.com",
+        "stackoverflow.com", "wikipedia.org", "reddit.com", "netflix.com", "nytimes.com"
+      ];
+      
+      // Check if it's a known trusted domain
+      const isTrustedDomain = trustedDomains.some(trusted => domain.endsWith(trusted));
+      
+      if (isTrustedDomain) {
+        // Known trusted domain
+        trustRating = 'safe';
+        score = getRandomInt(0, 20);
+        redirectCount = 0;
+        reasons = [
+          "Established trusted domain",
+          "No suspicious redirects",
+          "Valid SSL certificate"
+        ];
+        domainAge = "5+ years";
+        ssl = true;
+      } else if (riskFactors >= 3 || hasSuspiciousKeywords) {
+        // High risk
+        trustRating = 'dangerous';
+        score = getRandomInt(70, 95);
+        redirectCount = getRandomInt(2, 5);
+        
+        reasons = [];
+        if (hasShortener) reasons.push("URL shortener detected");
+        if (hasNumbers) reasons.push("Domain contains unusual number patterns");
+        if (isDashSeparated) reasons.push("Domain uses excessive hyphens");
+        if (hasSuspiciousKeywords) reasons.push("Contains phishing or scam keywords");
+        if (isUncommonTLD) reasons.push("Uses uncommon top-level domain");
+        
+        // Add additional reasons
+        if (Math.random() > 0.5) reasons.push("Domain registered in the last 48 hours");
+        if (Math.random() > 0.7) {
+          reasons.push("Missing SSL certificate");
+          ssl = false;
+        }
+        
+        // Generate a fake final URL for redirects
+        finalUrl = hasShortener ? validatedUrl.replace(domain, "malicious-site" + getRandomInt(100, 999) + ".xyz") : validatedUrl;
+        domainAge = ["1 day", "3 days", "1 week", "2 weeks"][getRandomInt(0, 3)];
+      } else if (riskFactors >= 1) {
+        // Medium risk
+        trustRating = 'suspicious';
+        score = getRandomInt(35, 65);
+        redirectCount = getRandomInt(0, 2);
+        
+        reasons = [];
+        if (hasShortener) reasons.push("URL shortener detected");
+        if (hasNumbers && Math.random() > 0.5) reasons.push("Domain contains unusual number patterns");
+        if (isDashSeparated && Math.random() > 0.5) reasons.push("Domain uses hyphens");
+        if (isUncommonTLD) reasons.push("Uses uncommon top-level domain");
+        
+        // Add additional context
+        if (reasons.length < 2) reasons.push("Domain has limited web presence");
+        
+        finalUrl = hasShortener ? validatedUrl.replace(domain, "ad-site" + getRandomInt(10, 99) + ".com") : validatedUrl;
+        domainAge = ["1 month", "3 months", "6 months", "11 months"][getRandomInt(0, 3)];
+        ssl = Math.random() > 0.3;
+      } else {
+        // Low risk
+        trustRating = 'safe';
+        score = getRandomInt(0, 25);
+        redirectCount = 0;
+        reasons = [
+          "No known risk factors",
+          "No suspicious redirects",
+          "Valid SSL certificate"
+        ];
+        domainAge = ["1+ years", "2+ years", "3+ years", "5+ years"][getRandomInt(0, 3)];
+        ssl = true;
+      }
+      
+      const mockResult: LinkAnalysisResult = {
+        originalUrl: validatedUrl,
+        finalUrl,
+        redirectCount,
+        trustRating,
+        score,
+        reasons,
+        domainAge,
+        ssl
+      };
       
       setResult(mockResult);
       setIsLoading(false);
+      
+      // Show a toast notification
+      if (trustRating === 'dangerous') {
+        toast.error("High risk URL detected!");
+      } else if (trustRating === 'suspicious') {
+        toast.warning("This URL may not be safe");
+      } else {
+        toast.success("URL appears to be safe");
+      }
     }, 1500);
   };
 
@@ -125,7 +229,7 @@ const LinkInspection = () => {
               <div className="space-y-4">
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Enter URL to analyze..."
+                    placeholder="Enter URL to analyze... (e.g. google.com)"
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     className="flex-grow"
