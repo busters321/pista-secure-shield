@@ -1,8 +1,10 @@
 
-import { useState } from "react";
-import { Menu, X, Shield, ChevronDown } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Menu, X, Shield, ChevronDown, LogIn, LogOut, User } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./ThemeToggle";
+import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
   {
@@ -31,6 +33,16 @@ const navItems = [
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Check if user is logged in
+    const loggedInStatus = localStorage.getItem("pistaSecure_isLoggedIn") === "true";
+    setIsLoggedIn(loggedInStatus);
+  }, [location]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -41,11 +53,29 @@ export function Header() {
     setOpenDropdown(openDropdown === label ? null : label);
   };
 
+  const handleLogin = () => {
+    navigate("/signup");
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("pistaSecure_isLoggedIn");
+    setIsLoggedIn(false);
+    toast({
+      title: "Logged out",
+      description: "You have been successfully logged out.",
+    });
+    navigate("/");
+  };
+
+  const handleDashboard = () => {
+    navigate("/dashboard");
+  };
+
   return (
     <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
           <Shield className="h-7 w-7 text-pistachio" />
           <span className="text-xl font-bold">
             Pista<span className="text-pistachio">Secure</span>
@@ -97,8 +127,47 @@ export function Header() {
         <div className="flex items-center gap-4">
           <ThemeToggle />
           <div className="hidden sm:flex gap-3">
-            <Button variant="outline" size="sm">Log in</Button>
-            <Button size="sm" className="bg-pistachio hover:bg-pistachio-dark text-black">Sign up</Button>
+            {isLoggedIn ? (
+              <>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleDashboard}
+                  className="flex items-center gap-2"
+                >
+                  <User className="h-4 w-4" />
+                  Dashboard
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleLogout}
+                  className="flex items-center gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Log out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleLogin}
+                  className="flex items-center gap-2"
+                >
+                  <LogIn className="h-4 w-4" />
+                  Log in
+                </Button>
+                <Button 
+                  size="sm" 
+                  className="bg-pistachio hover:bg-pistachio-dark text-black"
+                  onClick={() => navigate("/signup")}
+                >
+                  Sign up
+                </Button>
+              </>
+            )}
           </div>
           <Button
             variant="ghost"
@@ -153,8 +222,57 @@ export function Header() {
               </div>
             ))}
             <div className="flex gap-3 pt-2">
-              <Button variant="outline" size="sm" className="flex-1">Log in</Button>
-              <Button size="sm" className="flex-1 bg-pistachio hover:bg-pistachio-dark text-black">Sign up</Button>
+              {isLoggedIn ? (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 flex items-center justify-center gap-2"
+                    onClick={() => {
+                      toggleMenu();
+                      handleDashboard();
+                    }}
+                  >
+                    <User className="h-4 w-4" />
+                    Dashboard
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="flex-1 flex items-center justify-center gap-2 bg-pistachio hover:bg-pistachio-dark text-black"
+                    onClick={() => {
+                      toggleMenu();
+                      handleLogout();
+                    }}
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Log out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1"
+                    onClick={() => {
+                      toggleMenu();
+                      handleLogin();
+                    }}
+                  >
+                    Log in
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="flex-1 bg-pistachio hover:bg-pistachio-dark text-black"
+                    onClick={() => {
+                      toggleMenu();
+                      navigate("/signup");
+                    }}
+                  >
+                    Sign up
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

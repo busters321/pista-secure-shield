@@ -1,8 +1,15 @@
 
 import { ArrowRight, Shield, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 export function Hero() {
+  const navigate = useNavigate();
+  
+  const handleGetStarted = () => {
+    navigate('/signup');
+  };
+
   return (
     <div className="relative overflow-hidden bg-gradient-to-b from-background to-background/90 pt-8 pb-16">
       {/* Background decorative elements */}
@@ -33,7 +40,11 @@ export function Hero() {
           </p>
 
           <div className="mt-10 flex flex-col sm:flex-row gap-4 w-full max-w-md">
-            <Button size="lg" className="w-full bg-pistachio hover:bg-pistachio-dark text-black">
+            <Button 
+              size="lg" 
+              className="w-full bg-pistachio hover:bg-pistachio-dark text-black"
+              onClick={handleGetStarted}
+            >
               Get Started
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
