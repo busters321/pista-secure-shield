@@ -1,14 +1,28 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, MapPin, Activity, Clock } from "lucide-react";
+import { Search, Download, MapPin, Activity, Clock, Ban, Shield } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 export function AdminUserIPTracker() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [banModalOpen, setBanModalOpen] = useState(false);
+  const [banningIP, setBanningIP] = useState<string | null>(null);
+  const [banReason, setBanReason] = useState("");
+  const [bannedIPs, setBannedIPs] = useState<string[]>([]);
+  
+  // Load banned IPs on component mount
+  useEffect(() => {
+    const storedBannedIPs = localStorage.getItem("pistaSecure_bannedIPs");
+    if (storedBannedIPs) {
+      setBannedIPs(JSON.parse(storedBannedIPs));
+    }
+  }, []);
   
   // Mock IP data - in a real app, this would come from a database
   const userIPs = [
@@ -87,6 +101,108 @@ export function AdminUserIPTracker() {
         return <Badge variant="outline">{status}</Badge>;
     }
   };
+  
+  const handleBanIP = (ip: string) => {
+    setBanningIP(ip);
+    setBanReason("");
+    setBanModalOpen(true);
+  };
+  
+  const confirmBanIP = () => {
+    if (banningIP) {
+      // Add IP to banned list
+      const updatedBannedIPs = [...bannedIPs, banningIP];
+      setBannedIPs(updatedBannedIPs);
+      
+      // Save to localStorage
+      localStorage.setItem("pistaSecure_bannedIPs", JSON.stringify(updatedBannedIPs));
+      
+      // Update any users with this IP in the user management
+      updateUsersBanStatusByIP(banningIP, banReason);
+      
+      toast.success(`IP address ${banningIP} has been banned`);
+      setBanModalOpen(false);
+    }
+  };
+  
+  const handleUnbanIP = (ip: string) => {
+    // Remove IP from banned list
+    const updatedBannedIPs = bannedIPs.filter(bannedIP => bannedIP !== ip);
+    setBannedIPs(updatedBannedIPs);
+    
+    // Save to localStorage
+    localStorage.setItem("pistaSecure_bannedIPs", JSON.stringify(updatedBannedIPs));
+    
+    // Update ban status for any users with this IP
+    removeIPBanFromUsers(ip);
+    
+    toast.success(`IP address ${ip} has been unbanned`);
+  };
+  
+  // Update user ban status for all users with specific IP
+  const updateUsersBanStatusByIP = (ip: string, reason: string) => {
+    try {
+      // Get managed users
+      const managedUsersJSON = localStorage.getItem("pistaSecure_managedUsers");
+      if (managedUsersJSON) {
+        const managedUsers = JSON.parse(managedUsersJSON);
+        
+        // Update users with matching IP
+        let updated = false;
+        const updatedUsers = managedUsers.map((user: any) => {
+          if (user.ip === ip) {
+            updated = true;
+            return {
+              ...user,
+              status: "inactive",
+              accountEnabled: false,
+              isBanned: true,
+              banReason: reason || "IP address banned by administrator"
+            };
+          }
+          return user;
+        });
+        
+        if (updated) {
+          localStorage.setItem("pistaSecure_managedUsers", JSON.stringify(updatedUsers));
+        }
+      }
+    } catch (error) {
+      console.error("Error updating user ban status by IP:", error);
+    }
+  };
+  
+  // Remove IP ban from users
+  const removeIPBanFromUsers = (ip: string) => {
+    try {
+      // Get managed users
+      const managedUsersJSON = localStorage.getItem("pistaSecure_managedUsers");
+      if (managedUsersJSON) {
+        const managedUsers = JSON.parse(managedUsersJSON);
+        
+        // Update users with matching IP
+        let updated = false;
+        const updatedUsers = managedUsers.map((user: any) => {
+          if (user.ip === ip && user.isBanned) {
+            updated = true;
+            return {
+              ...user,
+              status: "inactive", // Still inactive, but no longer banned
+              isBanned: false,
+              banReason: ""
+            };
+          }
+          return user;
+        });
+        
+        if (updated) {
+          localStorage.setItem("pistaSecure_managedUsers", JSON.stringify(updatedUsers));
+        }
+      }
+    } catch (error) {
+      console.error("Error removing IP ban from users:", error);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -128,12 +244,12 @@ export function AdminUserIPTracker() {
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Countries</CardTitle>
-            <CardDescription>Geographic spread</CardDescription>
+            <CardTitle className="text-lg">Banned IPs</CardTitle>
+            <CardDescription>Blocked addresses</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">
-              4
+            <div className="text-3xl font-bold text-red-500">
+              {bannedIPs.length}
             </div>
           </CardContent>
         </Card>
@@ -161,12 +277,15 @@ export function AdminUserIPTracker() {
               <TableHead>Last Login</TableHead>
               <TableHead>Login Count</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {storedEmail && storedIP && (
-              <TableRow className="bg-muted/20">
-                <TableCell className="font-medium">{storedEmail} <Badge variant="outline" className="ml-2">You</Badge></TableCell>
+              <TableRow className={bannedIPs.includes(storedIP) ? "bg-red-50" : "bg-muted/20"}>
+                <TableCell className="font-medium">
+                  {storedEmail} <Badge variant="outline" className="ml-2">You</Badge>
+                </TableCell>
                 <TableCell>{storedIP}</TableCell>
                 <TableCell className="flex items-center gap-1">
                   <MapPin className="h-3 w-3 text-muted-foreground" />
@@ -179,18 +298,40 @@ export function AdminUserIPTracker() {
                 </TableCell>
                 <TableCell>1</TableCell>
                 <TableCell>{getStatusBadge("online")}</TableCell>
+                <TableCell>
+                  {bannedIPs.includes(storedIP) ? (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleUnbanIP(storedIP)}
+                    >
+                      <Shield className="h-4 w-4 mr-1" />
+                      Unban
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-red-500 hover:text-red-700"
+                      onClick={() => handleBanIP(storedIP)}
+                    >
+                      <Ban className="h-4 w-4 mr-1" />
+                      Ban IP
+                    </Button>
+                  )}
+                </TableCell>
               </TableRow>
             )}
             
             {filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No user IPs found
                 </TableCell>
               </TableRow>
             ) : (
               filteredUsers.map((user) => (
-                <TableRow key={user.id}>
+                <TableRow key={user.id} className={bannedIPs.includes(user.ip) ? "bg-red-50" : ""}>
                   <TableCell className="font-medium">{user.email}</TableCell>
                   <TableCell>{user.ip}</TableCell>
                   <TableCell className="flex items-center gap-1">
@@ -203,13 +344,82 @@ export function AdminUserIPTracker() {
                     {user.lastLogin}
                   </TableCell>
                   <TableCell>{user.loginCount}</TableCell>
-                  <TableCell>{getStatusBadge(user.status)}</TableCell>
+                  <TableCell>
+                    {bannedIPs.includes(user.ip) ? (
+                      <Badge variant="destructive">Banned</Badge>
+                    ) : (
+                      getStatusBadge(user.status)
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {bannedIPs.includes(user.ip) ? (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleUnbanIP(user.ip)}
+                      >
+                        <Shield className="h-4 w-4 mr-1" />
+                        Unban
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-red-500 hover:text-red-700"
+                        onClick={() => handleBanIP(user.ip)}
+                      >
+                        <Ban className="h-4 w-4 mr-1" />
+                        Ban IP
+                      </Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </div>
+
+      {/* Ban IP Dialog */}
+      <Dialog open={banModalOpen} onOpenChange={setBanModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ban IP Address</DialogTitle>
+            <DialogDescription>
+              This will ban IP address: {banningIP}. All accounts using this IP will be disabled.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <label htmlFor="banReason" className="text-sm font-medium">Reason for Ban (optional)</label>
+                <Input
+                  id="banReason"
+                  placeholder="Suspicious activity, abuse, etc."
+                  value={banReason}
+                  onChange={(e) => setBanReason(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBanModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmBanIP}
+            >
+              Ban IP Address
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

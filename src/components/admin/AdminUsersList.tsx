@@ -1,27 +1,138 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, ChevronLeft, ChevronRight, Filter, UserCog } from "lucide-react";
+import { Search, Download, ChevronLeft, ChevronRight, Filter, UserCog, Shield, UserMinus, UserCheck, Ban } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export function AdminUsersList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [managingUser, setManagingUser] = useState<any>(null);
+  const [userManagementOpen, setUserManagementOpen] = useState(false);
+  const [banModalOpen, setBanModalOpen] = useState(false);
+  const [banReason, setBanReason] = useState("");
   
   // Mock user data - in a real app, this would come from a database
-  const users = [
-    { id: "1", name: "Alex Johnson", email: "alex@example.com", status: "active", role: "user", joined: "Mar 14, 2024" },
-    { id: "2", name: "Jamie Smith", email: "jamie@example.com", status: "active", role: "admin", joined: "Jan 5, 2024" },
-    { id: "3", name: "Taylor Doe", email: "taylor@example.com", status: "inactive", role: "user", joined: "Apr 2, 2024" },
-    { id: "4", name: "Casey Brown", email: "casey@example.com", status: "active", role: "user", joined: "Feb 18, 2024" },
-    { id: "5", name: "Jordan Wilson", email: "jordan@example.com", status: "pending", role: "user", joined: "Apr 9, 2024" },
-    { id: "6", name: "Riley Davis", email: "riley@example.com", status: "active", role: "user", joined: "Mar 22, 2024" },
-    { id: "7", name: "Morgan Lee", email: "morgan@example.com", status: "active", role: "user", joined: "Jan 30, 2024" },
-    { id: "8", name: "Quinn Garcia", email: "quinn@example.com", status: "inactive", role: "user", joined: "Apr 5, 2024" },
-  ];
+  const [users, setUsers] = useState([
+    { 
+      id: "1", 
+      name: "Alex Johnson", 
+      email: "alex@example.com", 
+      status: "active", 
+      role: "user", 
+      joined: "Mar 14, 2024",
+      ip: "192.168.1.45",
+      accountEnabled: true,
+      features: {
+        scamIntelligence: true,
+        linkInspection: true,
+        emailScanner: true,
+        cyberCopilot: false,
+        safeView: true,
+        socialProtection: false,
+        passwordChecker: true
+      },
+      isBanned: false,
+      banReason: ""
+    },
+    { 
+      id: "2", 
+      name: "Jamie Smith", 
+      email: "jamie@example.com", 
+      status: "active", 
+      role: "admin", 
+      joined: "Jan 5, 2024",
+      ip: "172.16.0.12",
+      accountEnabled: true,
+      features: {
+        scamIntelligence: true,
+        linkInspection: true,
+        emailScanner: true,
+        cyberCopilot: true,
+        safeView: true,
+        socialProtection: true,
+        passwordChecker: true
+      },
+      isBanned: false,
+      banReason: ""
+    },
+    { 
+      id: "3", 
+      name: "Taylor Doe", 
+      email: "taylor@example.com", 
+      status: "inactive", 
+      role: "user", 
+      joined: "Apr 2, 2024",
+      ip: "10.0.0.5",
+      accountEnabled: false,
+      features: {
+        scamIntelligence: false,
+        linkInspection: false,
+        emailScanner: false,
+        cyberCopilot: false,
+        safeView: false,
+        socialProtection: false,
+        passwordChecker: false
+      },
+      isBanned: true,
+      banReason: "Suspicious activity detected"
+    },
+    // ... keep existing code (the other users)
+  ]);
+
+  useEffect(() => {
+    // Load all signed-up users from local storage
+    const loadSignedUpUsers = () => {
+      try {
+        const storedUsers = localStorage.getItem("pistaSecure_users");
+        if (storedUsers) {
+          const parsedUsers = JSON.parse(storedUsers);
+          
+          // Map the stored users to match our user structure
+          const mappedUsers = parsedUsers.map((user: any, index: number) => ({
+            id: (users.length + index + 1).toString(),
+            name: user.fullName || user.email.split('@')[0],
+            email: user.email,
+            status: "pending",
+            role: "user",
+            joined: new Date().toLocaleDateString(),
+            ip: user.ip || "Unknown",
+            accountEnabled: false, // Default to disabled
+            features: {
+              scamIntelligence: false,
+              linkInspection: false,
+              emailScanner: false,
+              cyberCopilot: false,
+              safeView: false,
+              socialProtection: false,
+              passwordChecker: false
+            },
+            isBanned: false,
+            banReason: ""
+          }));
+          
+          // Merge with existing users, avoiding duplicates
+          const existingEmails = users.map(user => user.email);
+          const newUsers = mappedUsers.filter(user => !existingEmails.includes(user.email));
+          
+          if (newUsers.length > 0) {
+            setUsers(prevUsers => [...prevUsers, ...newUsers]);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading signed-up users:", error);
+      }
+    };
+    
+    loadSignedUpUsers();
+  }, []);
   
   // Filter users based on search term
   const filteredUsers = users.filter(
@@ -49,6 +160,162 @@ export function AdminUsersList() {
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
+  };
+
+  const handleManageUser = (user: any) => {
+    setManagingUser(user);
+    setUserManagementOpen(true);
+  };
+
+  const handleBanIP = (user: any) => {
+    setManagingUser(user);
+    setBanReason("");
+    setBanModalOpen(true);
+  };
+
+  const confirmBanIP = () => {
+    if (managingUser) {
+      const updatedUsers = users.map(user => {
+        if (user.id === managingUser.id) {
+          return {
+            ...user,
+            status: "inactive",
+            accountEnabled: false,
+            isBanned: true,
+            banReason: banReason || "Administrative action"
+          };
+        }
+        return user;
+      });
+      
+      // Also ban all users with the same IP
+      const bannedIP = managingUser.ip;
+      if (bannedIP !== "Unknown") {
+        updatedUsers.forEach(user => {
+          if (user.ip === bannedIP && user.id !== managingUser.id) {
+            user.status = "inactive";
+            user.accountEnabled = false;
+            user.isBanned = true;
+            user.banReason = `IP address banned: ${banReason || "Administrative action"}`;
+          }
+        });
+      }
+      
+      setUsers(updatedUsers);
+      setBanModalOpen(false);
+      toast.success(`Banned user ${managingUser.email} and associated IP: ${managingUser.ip}`);
+    }
+  };
+
+  const handleUnbanIP = (userId: string) => {
+    const userToUnban = users.find(user => user.id === userId);
+    if (userToUnban) {
+      const updatedUsers = users.map(user => {
+        if (user.id === userId) {
+          return {
+            ...user,
+            status: "pending",
+            isBanned: false,
+            banReason: ""
+          };
+        }
+        return user;
+      });
+      
+      setUsers(updatedUsers);
+      toast.success(`Unbanned user ${userToUnban.email}`);
+    }
+  };
+
+  const updateUserFeatureAccess = (userId: string, feature: string, enabled: boolean) => {
+    const updatedUsers = users.map(user => {
+      if (user.id === userId) {
+        return {
+          ...user,
+          features: {
+            ...user.features,
+            [feature]: enabled
+          }
+        };
+      }
+      return user;
+    });
+    
+    setUsers(updatedUsers);
+  };
+
+  const toggleAccountStatus = (userId: string, enabled: boolean) => {
+    const updatedUsers = users.map(user => {
+      if (user.id === userId) {
+        return {
+          ...user,
+          accountEnabled: enabled,
+          status: enabled ? "active" : "inactive"
+        };
+      }
+      return user;
+    });
+    
+    setUsers(updatedUsers);
+    
+    // Update in localStorage
+    saveUsersToLocalStorage(updatedUsers);
+    
+    const affectedUser = users.find(user => user.id === userId);
+    if (affectedUser) {
+      toast.success(`${enabled ? "Activated" : "Deactivated"} account for ${affectedUser.email}`);
+    }
+  };
+
+  // Save users to localStorage for persistence
+  const saveUsersToLocalStorage = (updatedUsers: any[]) => {
+    try {
+      localStorage.setItem("pistaSecure_managedUsers", JSON.stringify(updatedUsers));
+    } catch (error) {
+      console.error("Error saving user changes:", error);
+    }
+  };
+
+  const handleBulkAction = (action: string) => {
+    if (selectedUsers.length === 0) {
+      toast.error("No users selected");
+      return;
+    }
+    
+    let updatedUsers = [...users];
+    
+    switch (action) {
+      case "activate":
+        updatedUsers = users.map(user => 
+          selectedUsers.includes(user.id) 
+            ? { ...user, accountEnabled: true, status: "active" } 
+            : user
+        );
+        toast.success(`Activated ${selectedUsers.length} accounts`);
+        break;
+        
+      case "deactivate":
+        updatedUsers = users.map(user => 
+          selectedUsers.includes(user.id) 
+            ? { ...user, accountEnabled: false, status: "inactive" } 
+            : user
+        );
+        toast.success(`Deactivated ${selectedUsers.length} accounts`);
+        break;
+        
+      case "ban":
+        updatedUsers = users.map(user => 
+          selectedUsers.includes(user.id) 
+            ? { ...user, accountEnabled: false, status: "inactive", isBanned: true, banReason: "Bulk action" } 
+            : user
+        );
+        toast.success(`Banned ${selectedUsers.length} accounts`);
+        break;
+    }
+    
+    setUsers(updatedUsers);
+    saveUsersToLocalStorage(updatedUsers);
+    setSelectedUsers([]);
   };
 
   return (
@@ -82,9 +349,37 @@ export function AdminUsersList() {
           />
         </div>
         <div className="flex items-center space-x-2 self-end">
+          {selectedUsers.length > 0 && (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleBulkAction("activate")}
+              >
+                <UserCheck className="h-4 w-4 mr-2" />
+                Activate
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleBulkAction("deactivate")}
+              >
+                <UserMinus className="h-4 w-4 mr-2" />
+                Deactivate
+              </Button>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={() => handleBulkAction("ban")}
+              >
+                <Ban className="h-4 w-4 mr-2" />
+                Ban
+              </Button>
+            </>
+          )}
           <Button variant="outline" size="sm" disabled={selectedUsers.length === 0}>
             <UserCog className="h-4 w-4 mr-2" />
-            Manage Selected
+            Manage Selected ({selectedUsers.length})
           </Button>
           <Button 
             variant="default" 
@@ -117,7 +412,8 @@ export function AdminUsersList() {
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Role</TableHead>
+              <TableHead>Account</TableHead>
+              <TableHead>IP Address</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -125,13 +421,13 @@ export function AdminUsersList() {
           <TableBody>
             {filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No users found
                 </TableCell>
               </TableRow>
             ) : (
               filteredUsers.map((user) => (
-                <TableRow key={user.id}>
+                <TableRow key={user.id} className={user.isBanned ? "bg-red-50" : ""}>
                   <TableCell>
                     <input 
                       type="checkbox" 
@@ -144,13 +440,47 @@ export function AdminUsersList() {
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{getStatusBadge(user.status)}</TableCell>
                   <TableCell>
-                    <span className="capitalize">{user.role}</span>
+                    <Switch 
+                      checked={user.accountEnabled} 
+                      onCheckedChange={(checked) => toggleAccountStatus(user.id, checked)}
+                      disabled={user.isBanned}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {user.ip || "Unknown"}
+                    {user.isBanned && (
+                      <Badge variant="destructive" className="ml-2">Banned</Badge>
+                    )}
                   </TableCell>
                   <TableCell>{user.joined}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
-                      Edit
+                  <TableCell className="text-right space-x-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleManageUser(user)}
+                    >
+                      Features
                     </Button>
+                    {user.isBanned ? (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleUnbanIP(user.id)}
+                      >
+                        <Shield className="h-4 w-4 mr-1" />
+                        Unban
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-red-500 hover:text-red-700"
+                        onClick={() => handleBanIP(user)}
+                      >
+                        <Ban className="h-4 w-4 mr-1" />
+                        Ban IP
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
@@ -184,6 +514,292 @@ export function AdminUsersList() {
           </Button>
         </div>
       </div>
+
+      {/* User Feature Management Sheet */}
+      <Sheet open={userManagementOpen} onOpenChange={setUserManagementOpen}>
+        <SheetContent className="w-[400px] sm:w-[540px]">
+          <SheetHeader>
+            <SheetTitle>User Features Control</SheetTitle>
+            <SheetDescription>
+              {managingUser ? `Managing features for ${managingUser.email}` : "Select a user to manage features"}
+            </SheetDescription>
+          </SheetHeader>
+          
+          {managingUser && (
+            <div className="py-6 space-y-6">
+              <div className="grid gap-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Scam Intelligence</h3>
+                    <p className="text-sm text-muted-foreground">AI-powered scam detection</p>
+                  </div>
+                  <Switch 
+                    checked={managingUser.features.scamIntelligence} 
+                    onCheckedChange={(checked) => {
+                      const updatedUser = {
+                        ...managingUser,
+                        features: {
+                          ...managingUser.features,
+                          scamIntelligence: checked
+                        }
+                      };
+                      setManagingUser(updatedUser);
+                      updateUserFeatureAccess(managingUser.id, "scamIntelligence", checked);
+                    }}
+                    disabled={!managingUser.accountEnabled || managingUser.isBanned}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Link Inspection</h3>
+                    <p className="text-sm text-muted-foreground">URL safety analysis</p>
+                  </div>
+                  <Switch 
+                    checked={managingUser.features.linkInspection}
+                    onCheckedChange={(checked) => {
+                      const updatedUser = {
+                        ...managingUser,
+                        features: {
+                          ...managingUser.features,
+                          linkInspection: checked
+                        }
+                      };
+                      setManagingUser(updatedUser);
+                      updateUserFeatureAccess(managingUser.id, "linkInspection", checked);
+                    }}
+                    disabled={!managingUser.accountEnabled || managingUser.isBanned}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Email Scanner</h3>
+                    <p className="text-sm text-muted-foreground">Email content analysis</p>
+                  </div>
+                  <Switch 
+                    checked={managingUser.features.emailScanner}
+                    onCheckedChange={(checked) => {
+                      const updatedUser = {
+                        ...managingUser,
+                        features: {
+                          ...managingUser.features,
+                          emailScanner: checked
+                        }
+                      };
+                      setManagingUser(updatedUser);
+                      updateUserFeatureAccess(managingUser.id, "emailScanner", checked);
+                    }}
+                    disabled={!managingUser.accountEnabled || managingUser.isBanned}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Cyber Copilot</h3>
+                    <p className="text-sm text-muted-foreground">AI security assistant</p>
+                  </div>
+                  <Switch 
+                    checked={managingUser.features.cyberCopilot}
+                    onCheckedChange={(checked) => {
+                      const updatedUser = {
+                        ...managingUser,
+                        features: {
+                          ...managingUser.features,
+                          cyberCopilot: checked
+                        }
+                      };
+                      setManagingUser(updatedUser);
+                      updateUserFeatureAccess(managingUser.id, "cyberCopilot", checked);
+                    }}
+                    disabled={!managingUser.accountEnabled || managingUser.isBanned}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">SafeView Browser</h3>
+                    <p className="text-sm text-muted-foreground">Secure browsing environment</p>
+                  </div>
+                  <Switch 
+                    checked={managingUser.features.safeView}
+                    onCheckedChange={(checked) => {
+                      const updatedUser = {
+                        ...managingUser,
+                        features: {
+                          ...managingUser.features,
+                          safeView: checked
+                        }
+                      };
+                      setManagingUser(updatedUser);
+                      updateUserFeatureAccess(managingUser.id, "safeView", checked);
+                    }}
+                    disabled={!managingUser.accountEnabled || managingUser.isBanned}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Social Media Protection</h3>
+                    <p className="text-sm text-muted-foreground">Social account security</p>
+                  </div>
+                  <Switch 
+                    checked={managingUser.features.socialProtection}
+                    onCheckedChange={(checked) => {
+                      const updatedUser = {
+                        ...managingUser,
+                        features: {
+                          ...managingUser.features,
+                          socialProtection: checked
+                        }
+                      };
+                      setManagingUser(updatedUser);
+                      updateUserFeatureAccess(managingUser.id, "socialProtection", checked);
+                    }}
+                    disabled={!managingUser.accountEnabled || managingUser.isBanned}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Password Checker</h3>
+                    <p className="text-sm text-muted-foreground">Password security analysis</p>
+                  </div>
+                  <Switch 
+                    checked={managingUser.features.passwordChecker}
+                    onCheckedChange={(checked) => {
+                      const updatedUser = {
+                        ...managingUser,
+                        features: {
+                          ...managingUser.features,
+                          passwordChecker: checked
+                        }
+                      };
+                      setManagingUser(updatedUser);
+                      updateUserFeatureAccess(managingUser.id, "passwordChecker", checked);
+                    }}
+                    disabled={!managingUser.accountEnabled || managingUser.isBanned}
+                  />
+                </div>
+              </div>
+              
+              <div className="pt-4 border-t">
+                <div className="flex justify-between">
+                  <Button
+                    variant="outline"
+                    onClick={() => setUserManagementOpen(false)}
+                  >
+                    Close
+                  </Button>
+                  <div className="space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        // Disable all features
+                        const updatedUser = {
+                          ...managingUser,
+                          features: {
+                            scamIntelligence: false,
+                            linkInspection: false,
+                            emailScanner: false,
+                            cyberCopilot: false,
+                            safeView: false,
+                            socialProtection: false,
+                            passwordChecker: false
+                          }
+                        };
+                        setManagingUser(updatedUser);
+                        
+                        // Update each feature in the users array
+                        Object.keys(updatedUser.features).forEach(feature => {
+                          updateUserFeatureAccess(managingUser.id, feature, false);
+                        });
+                        
+                        toast.success("Disabled all features for this user");
+                      }}
+                      disabled={!managingUser.accountEnabled || managingUser.isBanned}
+                    >
+                      Disable All
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        // Enable all features
+                        const updatedUser = {
+                          ...managingUser,
+                          features: {
+                            scamIntelligence: true,
+                            linkInspection: true,
+                            emailScanner: true,
+                            cyberCopilot: true,
+                            safeView: true,
+                            socialProtection: true,
+                            passwordChecker: true
+                          }
+                        };
+                        setManagingUser(updatedUser);
+                        
+                        // Update each feature in the users array
+                        Object.keys(updatedUser.features).forEach(feature => {
+                          updateUserFeatureAccess(managingUser.id, feature, true);
+                        });
+                        
+                        toast.success("Enabled all features for this user");
+                      }}
+                      disabled={!managingUser.accountEnabled || managingUser.isBanned}
+                    >
+                      Enable All
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+      
+      {/* Ban IP Dialog */}
+      <Dialog open={banModalOpen} onOpenChange={setBanModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ban User and IP Address</DialogTitle>
+            <DialogDescription>
+              {managingUser ? 
+                `This will ban ${managingUser.email} and block their IP address: ${managingUser.ip}. All other accounts using this IP will also be disabled.` :
+                "Select a user to ban"
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <FormLabel htmlFor="banReason">Reason for Ban (optional)</FormLabel>
+                <Input
+                  id="banReason"
+                  placeholder="Suspicious activity, abuse, etc."
+                  value={banReason}
+                  onChange={(e) => setBanReason(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBanModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmBanIP}
+            >
+              Ban User & IP
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

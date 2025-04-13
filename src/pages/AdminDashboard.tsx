@@ -37,6 +37,7 @@ const AdminDashboard = () => {
   const { isAdminAuthenticated, adminLogout } = useAdminAuth();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeToolTab, setActiveToolTab] = useState<string | null>(null);
   const navigate = useNavigate();
   
   useEffect(() => {
@@ -59,6 +60,11 @@ const AdminDashboard = () => {
     navigate("/admin");
   };
 
+  const handleToolClick = (tool: string) => {
+    setActiveTab("tools");
+    setActiveToolTab(tool);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard":
@@ -72,7 +78,7 @@ const AdminDashboard = () => {
       case "ip-tracker":
         return <AdminUserIPTracker />;
       case "tools":
-        return <AdminToolsManagement />;
+        return <AdminToolsManagement activeToolTab={activeToolTab} />;
       default:
         return <AdminStats />;
     }
@@ -155,30 +161,53 @@ const AdminDashboard = () => {
               <h4 className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2">Tools Management</h4>
               <div className="space-y-1">
                 <Button 
-                  variant={activeTab === "tools" ? "secondary" : "ghost"}
+                  variant={(activeTab === "tools" && !activeToolTab) ? "secondary" : "ghost"}
                   className="w-full justify-start text-sm"
-                  onClick={() => setActiveTab("tools")}
+                  onClick={() => {
+                    setActiveTab("tools");
+                    setActiveToolTab(null);
+                  }}
                 >
                   <Settings2 className="h-4 w-4 mr-2" />
                   All Tools
                 </Button>
-                <Button variant="ghost" className="w-full justify-start text-sm">
+                <Button 
+                  variant={(activeTab === "tools" && activeToolTab === "scamIntelligence") ? "secondary" : "ghost"} 
+                  className="w-full justify-start text-sm"
+                  onClick={() => handleToolClick("scamIntelligence")}
+                >
                   <Shield className="h-4 w-4 mr-2" />
                   Scam Intelligence
                 </Button>
-                <Button variant="ghost" className="w-full justify-start text-sm">
+                <Button 
+                  variant={(activeTab === "tools" && activeToolTab === "linkInspection") ? "secondary" : "ghost"}
+                  className="w-full justify-start text-sm"
+                  onClick={() => handleToolClick("linkInspection")}
+                >
                   <Link className="h-4 w-4 mr-2" />
                   Link Inspection
                 </Button>
-                <Button variant="ghost" className="w-full justify-start text-sm">
+                <Button 
+                  variant={(activeTab === "tools" && activeToolTab === "emailScanner") ? "secondary" : "ghost"}
+                  className="w-full justify-start text-sm"
+                  onClick={() => handleToolClick("emailScanner")}
+                >
                   <Mail className="h-4 w-4 mr-2" />
                   Email Scanner
                 </Button>
-                <Button variant="ghost" className="w-full justify-start text-sm">
+                <Button 
+                  variant={(activeTab === "tools" && activeToolTab === "cyberCopilot") ? "secondary" : "ghost"}
+                  className="w-full justify-start text-sm"
+                  onClick={() => handleToolClick("cyberCopilot")}
+                >
                   <MessageCircle className="h-4 w-4 mr-2" />
                   Cyber Copilot
                 </Button>
-                <Button variant="ghost" className="w-full justify-start text-sm">
+                <Button 
+                  variant={(activeTab === "tools" && activeToolTab === "safeView") ? "secondary" : "ghost"}
+                  className="w-full justify-start text-sm"
+                  onClick={() => handleToolClick("safeView")}
+                >
                   <Globe className="h-4 w-4 mr-2" />
                   SafeView Browser
                 </Button>
@@ -219,7 +248,9 @@ const AdminDashboard = () => {
             {activeTab === "scams" && "Scam Reports"}
             {activeTab === "settings" && "System Settings"}
             {activeTab === "ip-tracker" && "User IP Tracker"}
-            {activeTab === "tools" && "Tools Management"}
+            {activeTab === "tools" && (
+              <>Tools Management {activeToolTab && `- ${activeToolTab.replace(/([A-Z])/g, ' $1').trim()}`}</>
+            )}
           </h1>
           <div className="flex items-center space-x-2">
             <Button variant="ghost" size="icon">
