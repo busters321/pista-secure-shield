@@ -17,9 +17,19 @@ export function Header() {
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
+
+  const handleLogout = () => {
+    localStorage.removeItem("pistaSecure_isLoggedIn");
+    localStorage.removeItem("pistaSecure_userEmail");
+    // Don't remove IP info for tracking purposes
+    window.location.href = "/";
+  };
   
   // Hide the header on the sign-up page
   if (location.pathname === "/signup") return null;
+  
+  // Hide the header on the login page
+  if (location.pathname === "/login") return null;
   
   // Don't show the header on admin pages
   if (location.pathname.startsWith("/admin")) return null;
@@ -48,7 +58,7 @@ export function Header() {
                   {isLoggedIn ? (
                     <>
                       <Link to="/dashboard" className="px-4 py-2 hover:bg-muted rounded" onClick={toggleMenu}>Dashboard</Link>
-                      <Button variant="destructive" className="mt-2">
+                      <Button variant="destructive" className="mt-2" onClick={handleLogout}>
                         Log out
                       </Button>
                     </>
@@ -57,9 +67,11 @@ export function Header() {
                       <Link to="/signup" className="px-4 py-2 hover:bg-muted rounded" onClick={toggleMenu}>
                         Sign Up
                       </Link>
-                      <Button className="mt-2 bg-pistachio hover:bg-pistachio-dark text-black">
-                        Log in
-                      </Button>
+                      <Link to="/login" className="mt-2">
+                        <Button className="w-full bg-pistachio hover:bg-pistachio-dark text-black">
+                          Log in
+                        </Button>
+                      </Link>
                     </>
                   )}
                   <div className="mt-4 flex justify-between">
@@ -98,15 +110,17 @@ export function Header() {
               
               <div className="hidden md:flex items-center gap-2">
                 {isLoggedIn ? (
-                  <Button variant="destructive">Log out</Button>
+                  <Button variant="destructive" onClick={handleLogout}>Log out</Button>
                 ) : (
                   <>
                     <Link to="/signup">
                       <Button variant="outline">Sign Up</Button>
                     </Link>
-                    <Button className="bg-pistachio hover:bg-pistachio-dark text-black">
-                      Log in
-                    </Button>
+                    <Link to="/login">
+                      <Button className="bg-pistachio hover:bg-pistachio-dark text-black">
+                        Log in
+                      </Button>
+                    </Link>
                   </>
                 )}
               </div>

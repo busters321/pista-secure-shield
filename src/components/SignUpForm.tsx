@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ interface SignUpFormProps {
 export function SignUpForm({ formData, setFormData, onSubmit }: SignUpFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -78,6 +80,12 @@ export function SignUpForm({ formData, setFormData, onSubmit }: SignUpFormProps)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validate()) {
+      // Store user data in localStorage for this demo
+      localStorage.setItem("pistaSecure_userEmail", formData.email);
+      localStorage.setItem("pistaSecure_userName", formData.name);
+      localStorage.setItem("pistaSecure_lastLogin", new Date().toISOString());
+      localStorage.setItem("pistaSecure_userIP", "192.168." + Math.floor(Math.random() * 255) + "." + Math.floor(Math.random() * 255));
+      
       onSubmit();
     }
   };
@@ -172,7 +180,7 @@ export function SignUpForm({ formData, setFormData, onSubmit }: SignUpFormProps)
       </Button>
       
       <p className="text-center text-sm text-muted-foreground">
-        Already have an account? <a href="#" className="text-pistachio hover:underline">Log in</a>
+        Already have an account? <a href="/login" onClick={(e) => { e.preventDefault(); navigate('/login'); }} className="text-pistachio hover:underline">Log in</a>
       </p>
     </form>
   );

@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 import Index from "./pages/Index";
 import SignUp from "./pages/SignUp";
+import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import ScamIntelligence from "./pages/ScamIntelligence";
 import LinkInspection from "./pages/LinkInspection";
@@ -33,6 +34,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/signup" element={<SignUp />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/scam-intelligence" element={<ScamIntelligence />} />
             <Route path="/link-inspection" element={<LinkInspection />} />

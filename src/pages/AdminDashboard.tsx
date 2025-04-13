@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { 
   Shield, 
   Users, 
@@ -19,7 +19,9 @@ import {
   FileText,
   Instagram,
   Key,
-  MessageCircle
+  MessageCircle,
+  MapPin,
+  Settings2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,16 +30,34 @@ import { AdminStats } from "@/components/admin/AdminStats";
 import { AdminUsersList } from "@/components/admin/AdminUsersList";
 import { AdminScamStats } from "@/components/admin/AdminScamStats";
 import { AdminSystemSettings } from "@/components/admin/AdminSystemSettings";
+import { AdminUserIPTracker } from "@/components/admin/AdminUserIPTracker";
+import { AdminToolsManagement } from "@/components/admin/AdminToolsManagement";
 
 const AdminDashboard = () => {
   const { isAdminAuthenticated, adminLogout } = useAdminAuth();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    // Check for notifications
+    const interval = setInterval(() => {
+      // This would normally check for real notifications
+      console.log("Checking for admin notifications...");
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
   
   // Redirect if not authenticated
   if (!isAdminAuthenticated) {
     return <Navigate to="/admin" replace />;
   }
+
+  const handleLogout = () => {
+    adminLogout();
+    navigate("/admin");
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -49,6 +69,10 @@ const AdminDashboard = () => {
         return <AdminScamStats />;
       case "settings":
         return <AdminSystemSettings />;
+      case "ip-tracker":
+        return <AdminUserIPTracker />;
+      case "tools":
+        return <AdminToolsManagement />;
       default:
         return <AdminStats />;
     }
@@ -109,6 +133,14 @@ const AdminDashboard = () => {
                   Users
                 </Button>
                 <Button
+                  variant={activeTab === "ip-tracker" ? "secondary" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab("ip-tracker")}
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  IP Tracker
+                </Button>
+                <Button
                   variant={activeTab === "scams" ? "secondary" : "ghost"}
                   className="w-full justify-start"
                   onClick={() => setActiveTab("scams")}
@@ -122,6 +154,14 @@ const AdminDashboard = () => {
             <div>
               <h4 className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2">Tools Management</h4>
               <div className="space-y-1">
+                <Button 
+                  variant={activeTab === "tools" ? "secondary" : "ghost"}
+                  className="w-full justify-start text-sm"
+                  onClick={() => setActiveTab("tools")}
+                >
+                  <Settings2 className="h-4 w-4 mr-2" />
+                  All Tools
+                </Button>
                 <Button variant="ghost" className="w-full justify-start text-sm">
                   <Shield className="h-4 w-4 mr-2" />
                   Scam Intelligence
@@ -159,7 +199,7 @@ const AdminDashboard = () => {
                 <Button
                   variant="ghost"
                   className="w-full justify-start"
-                  onClick={adminLogout}
+                  onClick={handleLogout}
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Log out
@@ -178,6 +218,8 @@ const AdminDashboard = () => {
             {activeTab === "users" && "User Management"}
             {activeTab === "scams" && "Scam Reports"}
             {activeTab === "settings" && "System Settings"}
+            {activeTab === "ip-tracker" && "User IP Tracker"}
+            {activeTab === "tools" && "Tools Management"}
           </h1>
           <div className="flex items-center space-x-2">
             <Button variant="ghost" size="icon">
