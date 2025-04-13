@@ -1,282 +1,127 @@
 
-import { useState, useEffect } from "react";
-import { Menu, X, Shield, ChevronDown, LogIn, LogOut, User } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Shield, Menu, X, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NavigationMenu, NavigationMenuItem, NavigationMenuList, NavigationMenuLink, navigationMenuTriggerStyle } from "@/components/ui/navigation-menu";
 import { ThemeToggle } from "./ThemeToggle";
-import { useToast } from "@/hooks/use-toast";
-
-const navItems = [
-  {
-    label: "Tools",
-    children: [
-      { label: "Scam Intelligence", href: "#scam-intelligence" },
-      { label: "Link Inspector", href: "#" },
-      { label: "Email Scanner", href: "#" },
-      { label: "Cyber Copilot", href: "#" },
-      { label: "SafeView Browser", href: "#" },
-    ],
-  },
-  {
-    label: "Features",
-    children: [
-      { label: "Social Media Protection", href: "#" },
-      { label: "Password Risk Checker", href: "#" },
-      { label: "Scam Report Generator", href: "#" },
-      { label: "Live Threat Feed", href: "#" },
-    ],
-  },
-  { label: "Pricing", href: "#" },
-  { label: "About", href: "#" },
-];
+import { useMediaQuery } from "@/hooks/use-mobile";
 
 export function Header() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
-
-  useEffect(() => {
-    // Check if user is logged in
-    const loggedInStatus = localStorage.getItem("pistaSecure_isLoggedIn") === "true";
-    setIsLoggedIn(loggedInStatus);
-  }, [location]);
-
+  const isMobile = useMediaQuery("(max-width: 768px)");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
+  const isLoggedIn = localStorage.getItem("pistaSecure_isLoggedIn") === "true";
+  
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
-    setOpenDropdown(null);
   };
-
-  const toggleDropdown = (label: string) => {
-    setOpenDropdown(openDropdown === label ? null : label);
-  };
-
-  const handleLogin = () => {
-    navigate("/signup");
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("pistaSecure_isLoggedIn");
-    setIsLoggedIn(false);
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out.",
-    });
-    navigate("/");
-  };
-
-  const handleDashboard = () => {
-    navigate("/dashboard");
-  };
+  
+  // Hide the header on the sign-up page
+  if (location.pathname === "/signup") return null;
+  
+  // Don't show the header on admin pages
+  if (location.pathname.startsWith("/admin")) return null;
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        {/* Logo */}
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
-          <Shield className="h-7 w-7 text-pistachio" />
+      <div className="container mx-auto flex h-16 items-center px-4">
+        <Link to="/" className="flex items-center gap-2">
+          <Shield className="h-6 w-6 text-pistachio" />
           <span className="text-xl font-bold">
             Pista<span className="text-pistachio">Secure</span>
           </span>
-        </div>
-
-        {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-6">
-          {navItems.map((item) => (
-            item.children ? (
-              <div className="relative" key={item.label}>
-                <button
-                  className="flex items-center gap-1 px-1 py-2 text-sm font-medium hover:text-pistachio focus:outline-none"
-                  onClick={() => toggleDropdown(item.label)}
-                >
-                  {item.label}
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-                {openDropdown === item.label && (
-                  <div className="absolute top-full left-0 mt-1 w-48 rounded-md bg-card shadow-lg ring-1 ring-black/5 dark:ring-white/10">
-                    <div className="p-2">
-                      {item.children.map((child) => (
-                        <a
-                          key={child.label}
-                          href={child.href}
-                          className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => setOpenDropdown(null)}
-                        >
-                          {child.label}
-                        </a>
-                      ))}
-                    </div>
+        </Link>
+        
+        <div className="ml-auto flex items-center gap-4">
+          {isMobile ? (
+            <>
+              <Button variant="ghost" size="icon" onClick={toggleMenu} aria-label="Toggle Menu">
+                {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
+              
+              {isMenuOpen && (
+                <div className="absolute top-16 left-0 right-0 border-b border-border/40 bg-background/95 backdrop-blur-md p-4 flex flex-col gap-2">
+                  <Link to="/" className="px-4 py-2 hover:bg-muted rounded" onClick={toggleMenu}>Home</Link>
+                  
+                  {isLoggedIn ? (
+                    <>
+                      <Link to="/dashboard" className="px-4 py-2 hover:bg-muted rounded" onClick={toggleMenu}>Dashboard</Link>
+                      <Button variant="destructive" className="mt-2">
+                        Log out
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Link to="/signup" className="px-4 py-2 hover:bg-muted rounded" onClick={toggleMenu}>
+                        Sign Up
+                      </Link>
+                      <Button className="mt-2 bg-pistachio hover:bg-pistachio-dark text-black">
+                        Log in
+                      </Button>
+                    </>
+                  )}
+                  <div className="mt-4 flex justify-between">
+                    <Link to="/admin" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+                      <Settings className="h-4 w-4" />
+                      Admin
+                    </Link>
+                    <ThemeToggle />
                   </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <NavigationMenu className="hidden md:flex">
+                <NavigationMenuList>
+                  <NavigationMenuItem>
+                    <Link to="/">
+                      <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                        Home
+                      </NavigationMenuLink>
+                    </Link>
+                  </NavigationMenuItem>
+                  
+                  {isLoggedIn && (
+                    <NavigationMenuItem>
+                      <Link to="/dashboard">
+                        <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                          Dashboard
+                        </NavigationMenuLink>
+                      </Link>
+                    </NavigationMenuItem>
+                  )}
+                </NavigationMenuList>
+              </NavigationMenu>
+              
+              <div className="hidden md:flex items-center gap-2">
+                {isLoggedIn ? (
+                  <Button variant="destructive">Log out</Button>
+                ) : (
+                  <>
+                    <Link to="/signup">
+                      <Button variant="outline">Sign Up</Button>
+                    </Link>
+                    <Button className="bg-pistachio hover:bg-pistachio-dark text-black">
+                      Log in
+                    </Button>
+                  </>
                 )}
               </div>
-            ) : (
-              <a
-                key={item.label}
-                href={item.href}
-                className="px-1 py-2 text-sm font-medium hover:text-pistachio"
-              >
-                {item.label}
-              </a>
-            )
-          ))}
-        </nav>
-
-        {/* Right side actions */}
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <div className="hidden sm:flex gap-3">
-            {isLoggedIn ? (
-              <>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleDashboard}
-                  className="flex items-center gap-2"
-                >
-                  <User className="h-4 w-4" />
-                  Dashboard
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleLogout}
-                  className="flex items-center gap-2"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Log out
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleLogin}
-                  className="flex items-center gap-2"
-                >
-                  <LogIn className="h-4 w-4" />
-                  Log in
-                </Button>
-                <Button 
-                  size="sm" 
-                  className="bg-pistachio hover:bg-pistachio-dark text-black"
-                  onClick={() => navigate("/signup")}
-                >
-                  Sign up
-                </Button>
-              </>
-            )}
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={toggleMenu}
-          >
-            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
+              
+              <div className="flex items-center gap-2 ml-2">
+                <Link to="/admin" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+                  <Settings className="h-4 w-4" />
+                  Admin
+                </Link>
+                <ThemeToggle />
+              </div>
+            </>
+          )}
         </div>
       </div>
-
-      {/* Mobile Navigation */}
-      {isMenuOpen && (
-        <div className="lg:hidden border-t border-border/40 bg-background/90 backdrop-blur-md">
-          <div className="container mx-auto px-4 py-3 space-y-3">
-            {navItems.map((item) => (
-              <div key={item.label}>
-                {item.children ? (
-                  <>
-                    <button
-                      className="flex w-full items-center justify-between py-2 text-sm font-medium"
-                      onClick={() => toggleDropdown(item.label)}
-                    >
-                      {item.label}
-                      <ChevronDown className={`h-4 w-4 transition-transform ${openDropdown === item.label ? 'rotate-180' : ''}`} />
-                    </button>
-                    {openDropdown === item.label && (
-                      <div className="ml-4 mt-1 space-y-1 border-l border-border pl-4">
-                        {item.children.map((child) => (
-                          <a
-                            key={child.label}
-                            href={child.href}
-                            className="block py-2 text-sm hover:text-pistachio"
-                            onClick={toggleMenu}
-                          >
-                            {child.label}
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <a
-                    href={item.href}
-                    className="block py-2 text-sm font-medium hover:text-pistachio"
-                    onClick={toggleMenu}
-                  >
-                    {item.label}
-                  </a>
-                )}
-              </div>
-            ))}
-            <div className="flex gap-3 pt-2">
-              {isLoggedIn ? (
-                <>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1 flex items-center justify-center gap-2"
-                    onClick={() => {
-                      toggleMenu();
-                      handleDashboard();
-                    }}
-                  >
-                    <User className="h-4 w-4" />
-                    Dashboard
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    className="flex-1 flex items-center justify-center gap-2 bg-pistachio hover:bg-pistachio-dark text-black"
-                    onClick={() => {
-                      toggleMenu();
-                      handleLogout();
-                    }}
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Log out
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={() => {
-                      toggleMenu();
-                      handleLogin();
-                    }}
-                  >
-                    Log in
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    className="flex-1 bg-pistachio hover:bg-pistachio-dark text-black"
-                    onClick={() => {
-                      toggleMenu();
-                      navigate("/signup");
-                    }}
-                  >
-                    Sign up
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 }
