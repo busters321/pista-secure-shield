@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Shield, AlertTriangle, X, Check, Upload, Link, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,9 @@ export function ScamIntelligenceEngine() {
   };
 
   const analyzeContent = (content: string, type: InputType): AnalysisResult => {
+    // Convert content to lowercase for case-insensitive matching
+    const contentLower = content.toLowerCase();
+    
     const scamKeywords = [
       "bitcoin", "crypto", "wallet", "urgent", "emergency", 
       "password", "account", "login", "verify", "prize", "winner", 
@@ -65,19 +69,19 @@ export function ScamIntelligenceEngine() {
     let personalInfoWordCount = 0;
     
     scamKeywords.forEach(word => {
-      if (content.toLowerCase().includes(word.toLowerCase())) scamWordCount++;
+      if (contentLower.includes(word.toLowerCase())) scamWordCount++;
     });
     
     urgencyKeywords.forEach(word => {
-      if (content.toLowerCase().includes(word.toLowerCase())) urgencyWordCount++;
+      if (contentLower.includes(word.toLowerCase())) urgencyWordCount++;
     });
     
     financialKeywords.forEach(word => {
-      if (content.toLowerCase().includes(word.toLowerCase())) financialWordCount++;
+      if (contentLower.includes(word.toLowerCase())) financialWordCount++;
     });
     
     personalInfoKeywords.forEach(word => {
-      if (content.toLowerCase().includes(word.toLowerCase())) personalInfoWordCount++;
+      if (contentLower.includes(word.toLowerCase())) personalInfoWordCount++;
     });
     
     const totalMatches = scamWordCount + (urgencyWordCount * 1.5) + (financialWordCount * 1.2) + (personalInfoWordCount * 1.8);
@@ -100,12 +104,12 @@ export function ScamIntelligenceEngine() {
       reasons.push("Requests sensitive personal information");
     }
     
-    if (content.toLowerCase().includes("bitcoin") || content.toLowerCase().includes("crypto") || 
-        content.toLowerCase().includes("wallet") || content.toLowerCase().includes("investment")) {
+    if (contentLower.includes("bitcoin") || contentLower.includes("crypto") || 
+        contentLower.includes("wallet") || contentLower.includes("investment")) {
       reasons.push("Mentions cryptocurrency or investment opportunity");
     }
     
-    if (content.toLowerCase().includes("prize") || contentLower.includes("winner") || 
+    if (contentLower.includes("prize") || contentLower.includes("winner") || 
         contentLower.includes("lottery") || contentLower.includes("won")) {
       reasons.push("Offers prize or lottery winnings");
     }
