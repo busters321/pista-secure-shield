@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Shield, EyeOff, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,8 +37,33 @@ const Login = () => {
       return;
     }
     
-    // In a real app, this would verify credentials against a database
-    // For now, we're just setting a flag in localStorage
+    // Get registered users from localStorage
+    const storedUsers = localStorage.getItem("pistaSecure_users");
+    if (!storedUsers) {
+      toast({
+        title: "Error",
+        description: "No registered users found",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check if user exists with matching credentials
+    const users = JSON.parse(storedUsers);
+    const user = users.find((user: any) => 
+      user.email === formData.email && user.password === formData.password
+    );
+    
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "Invalid email or password",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Login successful
     localStorage.setItem("pistaSecure_isLoggedIn", "true");
     localStorage.setItem("pistaSecure_userEmail", formData.email);
     localStorage.setItem("pistaSecure_lastLogin", new Date().toISOString());

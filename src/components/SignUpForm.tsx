@@ -80,11 +80,29 @@ export function SignUpForm({ formData, setFormData, onSubmit }: SignUpFormProps)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validate()) {
-      // Store user data in localStorage for this demo
+      // Get existing users or create empty array
+      const storedUsers = localStorage.getItem("pistaSecure_users");
+      const existingUsers = storedUsers ? JSON.parse(storedUsers) : [];
+      
+      // Add new user to array
+      const newUser = {
+        email: formData.email,
+        password: formData.password,
+        fullName: formData.name,
+        joinDate: new Date().toISOString(),
+        ip: "192.168." + Math.floor(Math.random() * 255) + "." + Math.floor(Math.random() * 255)
+      };
+      
+      existingUsers.push(newUser);
+      
+      // Save updated users array
+      localStorage.setItem("pistaSecure_users", JSON.stringify(existingUsers));
+      
+      // Set current user in localStorage
       localStorage.setItem("pistaSecure_userEmail", formData.email);
       localStorage.setItem("pistaSecure_userName", formData.name);
       localStorage.setItem("pistaSecure_lastLogin", new Date().toISOString());
-      localStorage.setItem("pistaSecure_userIP", "192.168." + Math.floor(Math.random() * 255) + "." + Math.floor(Math.random() * 255));
+      localStorage.setItem("pistaSecure_userIP", newUser.ip);
       
       onSubmit();
     }

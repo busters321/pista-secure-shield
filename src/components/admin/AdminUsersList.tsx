@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, ChevronLeft, ChevronRight, Filter, UserCog, Shield, UserMinus, UserCheck, Ban } from "lucide-react";
+import { Search, Download, ChevronLeft, ChevronRight, Filter, UserCog, Shield, UserMinus, UserCheck, Ban, UserPlus } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,6 +19,12 @@ export function AdminUsersList() {
   const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [banModalOpen, setBanModalOpen] = useState(false);
   const [banReason, setBanReason] = useState("");
+  const [addUserOpen, setAddUserOpen] = useState(false);
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    password: ""
+  });
   
   // Mock user data - in a real app, this would come from a database
   const [users, setUsers] = useState([
@@ -83,8 +90,7 @@ export function AdminUsersList() {
       },
       isBanned: true,
       banReason: "Suspicious activity detected"
-    },
-    // ... keep existing code (the other users)
+    }
   ]);
 
   useEffect(() => {
@@ -96,34 +102,38 @@ export function AdminUsersList() {
           const parsedUsers = JSON.parse(storedUsers);
           
           // Map the stored users to match our user structure
-          const mappedUsers = parsedUsers.map((user: any, index: number) => ({
-            id: (users.length + index + 1).toString(),
-            name: user.fullName || user.email.split('@')[0],
-            email: user.email,
-            status: "pending",
-            role: "user",
-            joined: new Date().toLocaleDateString(),
-            ip: user.ip || "Unknown",
-            accountEnabled: false, // Default to disabled
-            features: {
-              scamIntelligence: false,
-              linkInspection: false,
-              emailScanner: false,
-              cyberCopilot: false,
-              safeView: false,
-              socialProtection: false,
-              passwordChecker: false
-            },
-            isBanned: false,
-            banReason: ""
-          }));
+          const mappedUsers = parsedUsers.map((user: any, index: number) => {
+            // Check if this user is already in our list
+            const existingUserIndex = users.findIndex(u => u.email === user.email);
+            if (existingUserIndex >= 0) {
+              return null; // Skip existing users
+            }
+            
+            return {
+              id: (users.length + index + 1).toString(),
+              name: user.fullName || user.email.split('@')[0],
+              email: user.email,
+              status: "pending",
+              role: "user",
+              joined: new Date(user.joinDate || Date.now()).toLocaleDateString(),
+              ip: user.ip || "Unknown",
+              accountEnabled: false, // Default to disabled
+              features: {
+                scamIntelligence: false,
+                linkInspection: false,
+                emailScanner: false,
+                cyberCopilot: false,
+                safeView: false,
+                socialProtection: false,
+                passwordChecker: false
+              },
+              isBanned: false,
+              banReason: ""
+            };
+          }).filter(Boolean); // Remove null entries (already existing users)
           
-          // Merge with existing users, avoiding duplicates
-          const existingEmails = users.map(user => user.email);
-          const newUsers = mappedUsers.filter(user => !existingEmails.includes(user.email));
-          
-          if (newUsers.length > 0) {
-            setUsers(prevUsers => [...prevUsers, ...newUsers]);
+          if (mappedUsers.length > 0) {
+            setUsers(prevUsers => [...prevUsers, ...mappedUsers]);
           }
         }
       } catch (error) {
@@ -132,6 +142,9 @@ export function AdminUsersList() {
     };
     
     loadSignedUpUsers();
+    
+    // Save the current users to localStorage for feature access
+    saveUsersToLocalStorage(users);
   }, []);
   
   // Filter users based on search term
@@ -202,6 +215,7 @@ export function AdminUsersList() {
       }
       
       setUsers(updatedUsers);
+      saveUsersToLocalStorage(updatedUsers);
       setBanModalOpen(false);
       toast.success(`Banned user ${managingUser.email} and associated IP: ${managingUser.ip}`);
     }
@@ -223,6 +237,7 @@ export function AdminUsersList() {
       });
       
       setUsers(updatedUsers);
+      saveUsersToLocalStorage(updatedUsers);
       toast.success(`Unbanned user ${userToUnban.email}`);
     }
   };
@@ -242,6 +257,7 @@ export function AdminUsersList() {
     });
     
     setUsers(updatedUsers);
+    saveUsersToLocalStorage(updatedUsers);
   };
 
   const toggleAccountStatus = (userId: string, enabled: boolean) => {
@@ -257,8 +273,6 @@ export function AdminUsersList() {
     });
     
     setUsers(updatedUsers);
-    
-    // Update in localStorage
     saveUsersToLocalStorage(updatedUsers);
     
     const affectedUser = users.find(user => user.id === userId);
@@ -267,7 +281,7 @@ export function AdminUsersList() {
     }
   };
 
-  // Save users to localStorage for persistence
+  // Save users to localStorage for persistence and feature access
   const saveUsersToLocalStorage = (updatedUsers: any[]) => {
     try {
       localStorage.setItem("pistaSecure_managedUsers", JSON.stringify(updatedUsers));
@@ -316,6 +330,67 @@ export function AdminUsersList() {
     setUsers(updatedUsers);
     saveUsersToLocalStorage(updatedUsers);
     setSelectedUsers([]);
+  };
+
+  const handleAddUser = () => {
+    if (!newUser.name || !newUser.email || !newUser.password) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    
+    // Check if email already exists
+    if (users.some(user => user.email === newUser.email)) {
+      toast.error("User with this email already exists");
+      return;
+    }
+    
+    const newId = (users.length + 1).toString();
+    const userToAdd = {
+      id: newId,
+      name: newUser.name,
+      email: newUser.email,
+      status: "pending",
+      role: "user",
+      joined: new Date().toLocaleDateString(),
+      ip: "192.168." + Math.floor(Math.random() * 255) + "." + Math.floor(Math.random() * 255),
+      accountEnabled: false,
+      features: {
+        scamIntelligence: false,
+        linkInspection: false,
+        emailScanner: false,
+        cyberCopilot: false,
+        safeView: false,
+        socialProtection: false,
+        passwordChecker: false
+      },
+      isBanned: false,
+      banReason: ""
+    };
+    
+    // Add to users list
+    const updatedUsers = [...users, userToAdd];
+    setUsers(updatedUsers);
+    
+    // Add to registered users
+    const storedUsers = localStorage.getItem("pistaSecure_users");
+    const existingUsers = storedUsers ? JSON.parse(storedUsers) : [];
+    existingUsers.push({
+      email: newUser.email,
+      password: newUser.password,
+      fullName: newUser.name,
+      joinDate: new Date().toISOString(),
+      ip: userToAdd.ip
+    });
+    localStorage.setItem("pistaSecure_users", JSON.stringify(existingUsers));
+    
+    // Save for feature access
+    saveUsersToLocalStorage(updatedUsers);
+    
+    // Reset form and close modal
+    setNewUser({ name: "", email: "", password: "" });
+    setAddUserOpen(false);
+    
+    toast.success(`Added new user: ${newUser.email}`);
   };
 
   return (
@@ -385,7 +460,9 @@ export function AdminUsersList() {
             variant="default" 
             size="sm" 
             className="bg-pistachio hover:bg-pistachio-dark text-black"
+            onClick={() => setAddUserOpen(true)}
           >
+            <UserPlus className="h-4 w-4 mr-2" />
             Add User
           </Button>
         </div>
@@ -796,6 +873,68 @@ export function AdminUsersList() {
               onClick={confirmBanIP}
             >
               Ban User & IP
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add User Dialog */}
+      <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+            <DialogDescription>
+              Create a new user account with default settings
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <FormLabel htmlFor="userName">Full Name</FormLabel>
+                <Input
+                  id="userName"
+                  placeholder="Enter full name"
+                  value={newUser.name}
+                  onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <FormLabel htmlFor="userEmail">Email</FormLabel>
+                <Input
+                  id="userEmail"
+                  type="email"
+                  placeholder="Enter email address"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <FormLabel htmlFor="userPassword">Password</FormLabel>
+                <Input
+                  id="userPassword"
+                  type="password"
+                  placeholder="Enter password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAddUserOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddUser}
+            >
+              Add User
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -33,6 +33,11 @@ import { AdminSystemSettings } from "@/components/admin/AdminSystemSettings";
 import { AdminUserIPTracker } from "@/components/admin/AdminUserIPTracker";
 import { AdminToolsManagement } from "@/components/admin/AdminToolsManagement";
 
+// Define the props interface for AdminToolsManagement
+interface AdminToolsManagementProps {
+  activeToolTab: string | null;
+}
+
 const AdminDashboard = () => {
   const { isAdminAuthenticated, adminLogout } = useAdminAuth();
   const [activeTab, setActiveTab] = useState("dashboard");
