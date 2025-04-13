@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Mail, AlertTriangle, CheckCircle, ShieldAlert, Upload, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 type EmailAnalysisResult = {
   riskLevel: 'safe' | 'suspicious' | 'dangerous';
@@ -24,6 +25,7 @@ const EmailScanner = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<EmailAnalysisResult | null>(null);
+  const { toast } = useToast();
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -36,6 +38,165 @@ const EmailScanner = () => {
     reader.readAsDataURL(file);
   };
 
+  const analyzeEmailContent = (content: string): EmailAnalysisResult => {
+    // Convert content to lowercase for case-insensitive matching
+    const contentLower = content.toLowerCase();
+    
+    // Define patterns to look for
+    const phishingKeywords = [
+      'urgent', 'verify', 'account', 'password', 'click here', 'link', 'login', 'confirm',
+      'suspended', 'security', 'unauthorized', 'unusual activity', 'bank', 'paypal', 'credit card'
+    ];
+    
+    const scamKeywords = [
+      'lottery', 'winner', 'million', 'inheritance', 'prince', 'donate', 'invest', 'bitcoin',
+      'cryptocurrency', 'opportunity', 'offer', 'cash', 'money', 'funds', 'transfer', 'limited time'
+    ];
+    
+    const personalInfoRequests = [
+      'ssn', 'social security', 'date of birth', 'address', 'pin', 'card number',
+      'credentials', 'username', 'password reset', 'verify identity', 'secure form'
+    ];
+    
+    const urgencyTerms = [
+      'immediate', 'urgent', 'warning', 'alert', 'now', 'today', 'expiration',
+      '24 hours', '48 hours', 'deadline', 'limited', 'act now', 'immediately'
+    ];
+    
+    const spoofedSenders = [
+      'paypal', 'amazon', 'apple', 'microsoft', 'google', 'bank', 'netflix',
+      'support', 'service', 'admin', 'helpdesk', 'security', 'account'
+    ];
+
+    // Calculate matches
+    const phishingScore = phishingKeywords.filter(word => contentLower.includes(word)).length;
+    const scamScore = scamKeywords.filter(word => contentLower.includes(word)).length;
+    const personalInfoScore = personalInfoRequests.filter(word => contentLower.includes(word)).length;
+    const urgencyScore = urgencyTerms.filter(word => contentLower.includes(word)).length;
+    const spoofedScore = spoofedSenders.filter(word => contentLower.includes(word)).length;
+    
+    // Calculate overall risk score (0-100)
+    const totalKeywords = phishingKeywords.length + scamKeywords.length + 
+                         personalInfoRequests.length + urgencyTerms.length + spoofedSenders.length;
+    
+    const matchedKeywords = phishingScore + scamScore + personalInfoScore + urgencyScore + spoofedScore;
+    
+    // Weight factors based on severity
+    const weightedScore = (phishingScore * 2) + (scamScore * 1.5) + 
+                         (personalInfoScore * 2.5) + (urgencyScore * 1) + (spoofedScore * 2);
+                         
+    // Calculate final score (0-100)
+    const maxPossibleWeightedScore = (phishingKeywords.length * 2) + (scamKeywords.length * 1.5) +
+                                   (personalInfoRequests.length * 2.5) + (urgencyTerms.length * 1) +
+                                   (spoofedSenders.length * 2);
+    
+    const finalScore = Math.min(Math.round((weightedScore / (maxPossibleWeightedScore * 0.4)) * 100), 100);
+    
+    // Determine risk level
+    let riskLevel: 'safe' | 'suspicious' | 'dangerous';
+    if (finalScore < 25) {
+      riskLevel = 'safe';
+    } else if (finalScore < 65) {
+      riskLevel = 'suspicious';
+    } else {
+      riskLevel = 'dangerous';
+    }
+    
+    // Build issues array
+    const issues = [];
+    
+    if (phishingScore > 0) {
+      issues.push({
+        category: "Phishing Indicators",
+        problems: phishingKeywords.filter(word => contentLower.includes(word)).map(word => 
+          `Contains phishing keyword: "${word}"`
+        ),
+        severity: phishingScore > 2 ? 'high' : phishingScore > 0 ? 'medium' : 'low'
+      });
+    }
+    
+    if (scamScore > 0) {
+      issues.push({
+        category: "Scam Indicators",
+        problems: scamKeywords.filter(word => contentLower.includes(word)).map(word => 
+          `Contains scam keyword: "${word}"`
+        ),
+        severity: scamScore > 2 ? 'high' : scamScore > 0 ? 'medium' : 'low'
+      });
+    }
+    
+    if (personalInfoScore > 0) {
+      issues.push({
+        category: "Personal Information Requests",
+        problems: personalInfoRequests.filter(word => contentLower.includes(word)).map(word => 
+          `Requests sensitive information: "${word}"`
+        ),
+        severity: personalInfoScore > 1 ? 'high' : 'medium'
+      });
+    }
+    
+    if (urgencyScore > 0) {
+      issues.push({
+        category: "Urgency Tactics",
+        problems: urgencyTerms.filter(word => contentLower.includes(word)).map(word => 
+          `Uses urgency to prompt action: "${word}"`
+        ),
+        severity: urgencyScore > 2 ? 'high' : 'medium'
+      });
+    }
+    
+    if (spoofedScore > 0) {
+      issues.push({
+        category: "Sender Authenticity",
+        problems: spoofedSenders.filter(word => contentLower.includes(word)).map(word => 
+          `Possible impersonation of: "${word}"`
+        ),
+        severity: spoofedScore > 1 ? 'high' : 'medium'
+      });
+    }
+    
+    // If no issues found, add a safe category
+    if (issues.length === 0) {
+      issues.push({
+        category: "Email Analysis",
+        problems: ["No suspicious content detected"],
+        severity: 'low'
+      });
+    }
+    
+    // Generate recommendations based on risk level
+    const recommendations = [];
+    
+    if (riskLevel === 'dangerous') {
+      recommendations.push(
+        "Do not click any links in this email",
+        "Do not download any attachments",
+        "Report this email as phishing to your provider",
+        "Block the sender immediately",
+        "If you've already clicked links or shared information, change your passwords"
+      );
+    } else if (riskLevel === 'suspicious') {
+      recommendations.push(
+        "Exercise caution with this email",
+        "Verify the sender through other channels before taking action",
+        "Do not share sensitive information",
+        "Hover over links before clicking to verify their destination"
+      );
+    } else {
+      recommendations.push(
+        "This email appears to be safe",
+        "Always remain vigilant with unexpected communications"
+      );
+    }
+    
+    return {
+      riskLevel,
+      score: finalScore,
+      issues,
+      recommendations
+    };
+  };
+
   const handleScan = () => {
     if (!emailContent && !imagePreview) return;
     
@@ -43,133 +204,53 @@ const EmailScanner = () => {
     
     // Simulate API call
     setTimeout(() => {
-      const lowerContent = emailContent.toLowerCase();
-      const hasPhishingTerms = 
-        lowerContent.includes("urgent") || 
-        lowerContent.includes("account") || 
-        lowerContent.includes("verify") ||
-        lowerContent.includes("password") ||
-        lowerContent.includes("click here");
-      
-      const hasSpoofedSender = 
-        lowerContent.includes("paypal") || 
-        lowerContent.includes("amazon") ||
-        lowerContent.includes("bank") ||
-        lowerContent.includes("microsoft");
-      
+      // If we have text content, analyze it
       let mockResult: EmailAnalysisResult;
       
-      if (hasPhishingTerms && hasSpoofedSender) {
-        mockResult = {
-          riskLevel: 'dangerous',
-          score: 92,
-          issues: [
-            {
-              category: "Sender Authentication",
-              problems: [
-                "Spoofed sender address",
-                "Mismatched reply-to address",
-                "Invalid DMARC record"
-              ],
-              severity: 'high'
-            },
-            {
-              category: "Content Analysis",
-              problems: [
-                "Contains urgent action language",
-                "Requests sensitive information",
-                "Contains suspicious links"
-              ],
-              severity: 'high'
-            },
-            {
-              category: "Technical Inspection",
-              problems: [
-                "Mismatched link URLs",
-                "Hidden redirect code"
-              ],
-              severity: 'medium'
-            }
-          ],
-          recommendations: [
-            "Do not click any links in this email",
-            "Do not download any attachments",
-            "Report this email as phishing to your provider",
-            "Block the sender"
-          ]
-        };
-      } else if (hasPhishingTerms || hasSpoofedSender) {
+      if (emailContent) {
+        mockResult = analyzeEmailContent(emailContent);
+      } else {
+        // For image analysis, we'd normally use OCR, but for demo we'll use a simulated result
         mockResult = {
           riskLevel: 'suspicious',
-          score: 65,
+          score: 58,
           issues: [
             {
-              category: "Sender Authentication",
+              category: "Image Analysis",
               problems: [
-                "Unusual sender domain",
-                "Recent domain registration"
+                "Image-based email detected (often used to bypass text filters)",
+                "Contains elements commonly found in phishing attempts"
               ],
               severity: 'medium'
-            },
-            {
-              category: "Content Analysis",
-              problems: [
-                "Contains some concerning language",
-                "Links to external websites"
-              ],
-              severity: 'medium'
-            },
-            {
-              category: "Technical Inspection",
-              problems: [
-                "No major technical issues found"
-              ],
-              severity: 'low'
             }
           ],
           recommendations: [
-            "Exercise caution with this email",
-            "Verify the sender through other channels before taking action",
+            "Exercise caution with image-based emails",
+            "Verify the sender through other channels",
             "Do not share sensitive information"
-          ]
-        };
-      } else {
-        mockResult = {
-          riskLevel: 'safe',
-          score: 12,
-          issues: [
-            {
-              category: "Sender Authentication",
-              problems: [
-                "No authentication issues detected"
-              ],
-              severity: 'low'
-            },
-            {
-              category: "Content Analysis",
-              problems: [
-                "No suspicious content detected"
-              ],
-              severity: 'low'
-            },
-            {
-              category: "Technical Inspection",
-              problems: [
-                "All links appear legitimate",
-                "No hidden code detected"
-              ],
-              severity: 'low'
-            }
-          ],
-          recommendations: [
-            "This email appears to be safe",
-            "Always remain vigilant with unexpected communications"
           ]
         };
       }
       
+      // Store the report in localStorage for admin panel to access
+      const reports = JSON.parse(localStorage.getItem('pistaSecure_scamReports') || '[]');
+      reports.push({
+        type: 'email',
+        content: emailContent || 'Image upload',
+        result: mockResult,
+        date: new Date().toISOString(),
+        id: `email-${Date.now()}`
+      });
+      localStorage.setItem('pistaSecure_scamReports', JSON.stringify(reports));
+      
       setResult(mockResult);
       setIsLoading(false);
+      
+      // Notify about the scan
+      toast({
+        title: "Email scan complete",
+        description: `Risk level: ${mockResult.riskLevel}`,
+      });
     }, 1500);
   };
 

@@ -1,288 +1,354 @@
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Link, Mail, FileText, ExternalLink } from "lucide-react";
+import { AlertTriangle, CheckCircle, ShieldAlert, Mail, Instagram, FileText, Search, UserX } from "lucide-react";
+import { BarChart3 } from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from "recharts";
+
+interface ScamReport {
+  id: string;
+  type: 'email' | 'social' | 'report';
+  content: string;
+  result: any;
+  date: string;
+}
 
 export function AdminScamStats() {
-  // Mock scam report data - in a real app, this would come from a database
-  const recentScams = [
-    { 
-      id: "SC-7293", 
-      type: "phishing", 
-      source: "email", 
-      target: "banking", 
-      reportedBy: "alex@example.com",
-      reportedAt: "Apr 12, 2024, 15:42",
-      severity: "high"
-    },
-    { 
-      id: "SC-7292", 
-      type: "fake website", 
-      source: "link", 
-      target: "ecommerce", 
-      reportedBy: "jamie@example.com",
-      reportedAt: "Apr 12, 2024, 14:18",
-      severity: "medium"
-    },
-    { 
-      id: "SC-7291", 
-      type: "malware", 
-      source: "website", 
-      target: "system access", 
-      reportedBy: "taylor@example.com",
-      reportedAt: "Apr 11, 2024, 22:07",
-      severity: "critical"
-    },
-    { 
-      id: "SC-7290", 
-      type: "impersonation", 
-      source: "social media", 
-      target: "personal", 
-      reportedBy: "casey@example.com",
-      reportedAt: "Apr 11, 2024, 16:35",
-      severity: "low"
-    },
-    { 
-      id: "SC-7289", 
-      type: "phishing", 
-      source: "email", 
-      target: "corporate", 
-      reportedBy: "jordan@example.com",
-      reportedAt: "Apr 11, 2024, 10:22",
-      severity: "high"
-    },
-  ];
+  const [reports, setReports] = useState<ScamReport[]>([]);
+  const [timeRange, setTimeRange] = useState('all');
+  const [selectedTab, setSelectedTab] = useState('overview');
 
-  const getSeverityBadge = (severity: string) => {
-    switch (severity) {
-      case "critical":
-        return <Badge className="bg-red-500">Critical</Badge>;
-      case "high":
-        return <Badge className="bg-orange-500">High</Badge>;
-      case "medium":
-        return <Badge className="bg-yellow-500">Medium</Badge>;
-      case "low":
-        return <Badge variant="outline">Low</Badge>;
+  useEffect(() => {
+    // Load reports from localStorage
+    const storedReports = JSON.parse(localStorage.getItem('pistaSecure_scamReports') || '[]');
+    setReports(storedReports);
+    
+    // Set up refresh interval
+    const interval = setInterval(() => {
+      const refreshedReports = JSON.parse(localStorage.getItem('pistaSecure_scamReports') || '[]');
+      setReports(refreshedReports);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Filter reports by time range
+  const getFilteredReports = () => {
+    if (timeRange === 'all') return reports;
+    
+    const now = new Date();
+    const cutoff = new Date();
+    
+    switch (timeRange) {
+      case 'day':
+        cutoff.setDate(now.getDate() - 1);
+        break;
+      case 'week':
+        cutoff.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        cutoff.setMonth(now.getMonth() - 1);
+        break;
       default:
-        return <Badge variant="outline">{severity}</Badge>;
+        return reports;
     }
+    
+    return reports.filter(report => new Date(report.date) >= cutoff);
   };
-
-  const getSourceIcon = (source: string) => {
-    switch (source) {
-      case "email":
+  
+  const filteredReports = getFilteredReports();
+  
+  // Calculate statistics
+  const emailReports = filteredReports.filter(r => r.type === 'email');
+  const socialReports = filteredReports.filter(r => r.type === 'social');
+  const manualReports = filteredReports.filter(r => r.type === 'report');
+  
+  const dangerousCount = emailReports.filter(r => r.result.riskLevel === 'dangerous').length + 
+                        socialReports.filter(r => r.result.trustLevel === 'scam').length +
+                        manualReports.filter(r => r.result.analysis.severity === 'high').length;
+                        
+  const suspiciousCount = emailReports.filter(r => r.result.riskLevel === 'suspicious').length + 
+                          socialReports.filter(r => r.result.trustLevel === 'suspicious').length +
+                          manualReports.filter(r => r.result.analysis.severity === 'medium').length;
+                          
+  const safeCount = emailReports.filter(r => r.result.riskLevel === 'safe').length + 
+                   socialReports.filter(r => r.result.trustLevel === 'trusted').length +
+                   manualReports.filter(r => r.result.analysis.severity === 'low').length;
+  
+  // Prepare chart data
+  const pieChartData = [
+    { name: 'Dangerous', value: dangerousCount, color: '#f87171' },
+    { name: 'Suspicious', value: suspiciousCount, color: '#facc15' },
+    { name: 'Safe', value: safeCount, color: '#4ade80' }
+  ];
+  
+  const barChartData = [
+    { name: 'Email', dangerous: emailReports.filter(r => r.result.riskLevel === 'dangerous').length, 
+      suspicious: emailReports.filter(r => r.result.riskLevel === 'suspicious').length,
+      safe: emailReports.filter(r => r.result.riskLevel === 'safe').length },
+    { name: 'Social', dangerous: socialReports.filter(r => r.result.trustLevel === 'scam').length,
+      suspicious: socialReports.filter(r => r.result.trustLevel === 'suspicious').length,
+      safe: socialReports.filter(r => r.result.trustLevel === 'trusted').length },
+    { name: 'Reports', dangerous: manualReports.filter(r => r.result.analysis.severity === 'high').length,
+      suspicious: manualReports.filter(r => r.result.analysis.severity === 'medium').length,
+      safe: manualReports.filter(r => r.result.analysis.severity === 'low').length }
+  ];
+  
+  const getRiskBadge = (type: string, result: any) => {
+    let riskLevel: string = 'unknown';
+    let color = 'bg-secondary text-secondary-foreground';
+    
+    if (type === 'email') {
+      riskLevel = result.riskLevel;
+    } else if (type === 'social') {
+      riskLevel = result.trustLevel;
+    } else if (type === 'report') {
+      riskLevel = result.analysis.severity === 'high' ? 'dangerous' : 
+                 result.analysis.severity === 'medium' ? 'suspicious' : 'safe';
+    }
+    
+    switch (riskLevel) {
+      case 'dangerous':
+      case 'scam':
+        color = 'bg-destructive/20 text-destructive';
+        break;
+      case 'suspicious':
+        color = 'bg-warning/20 text-warning';
+        break;
+      case 'safe':
+      case 'trusted':
+        color = 'bg-success/20 text-success';
+        break;
+    }
+    
+    return <Badge className={color}>{riskLevel}</Badge>;
+  };
+  
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'email':
         return <Mail className="h-4 w-4 text-blue-500" />;
-      case "link":
-        return <Link className="h-4 w-4 text-green-500" />;
-      case "website":
-        return <ExternalLink className="h-4 w-4 text-purple-500" />;
-      case "social media":
-        return <FileText className="h-4 w-4 text-pink-500" />;
+      case 'social':
+        return <Instagram className="h-4 w-4 text-purple-500" />;
+      case 'report':
+        return <FileText className="h-4 w-4 text-amber-500" />;
       default:
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+        return <AlertTriangle className="h-4 w-4" />;
     }
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Scam Reports</h2>
-        <p className="text-muted-foreground">
-          Overview of detected and reported scams across the platform
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Scam Reports</h2>
+          <p className="text-muted-foreground">Monitor and analyze user-submitted scam reports</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setTimeRange('day')}>
+            24h
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setTimeRange('week')}>
+            7d
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setTimeRange('month')}>
+            30d
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setTimeRange('all')}>
+            All
+          </Button>
+        </div>
       </div>
       
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Reports</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Total Reports</CardTitle>
+            <CardDescription>All detection methods</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">2,481</div>
-            <p className="text-xs text-muted-foreground">
-              +43 from yesterday
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Critical Threats</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">18</div>
-            <div className="text-xs text-red-500">
-              +3 new in last 24 hours
+            <div className="text-3xl font-bold">{filteredReports.length}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {emailReports.length} emails, {socialReports.length} profiles, {manualReports.length} manual
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Detection Rate</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Dangerous</CardTitle>
+            <CardDescription>High-risk threats</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">94.6%</div>
-            <p className="text-xs text-muted-foreground">
-              +2.3% from last week
-            </p>
+          <CardContent className="flex items-center gap-2">
+            <div className="text-3xl font-bold text-destructive">{dangerousCount}</div>
+            <ShieldAlert className="h-5 w-5 text-destructive" />
           </CardContent>
         </Card>
         
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Most Common</CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Safe</CardTitle>
+            <CardDescription>Low-risk items</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">Phishing</div>
-            <p className="text-xs text-muted-foreground">
-              62% of all reports
-            </p>
+          <CardContent className="flex items-center gap-2">
+            <div className="text-3xl font-bold text-success">{safeCount}</div>
+            <CheckCircle className="h-5 w-5 text-success" />
           </CardContent>
         </Card>
       </div>
       
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Scam Reports</CardTitle>
-          <CardDescription>
-            The latest threats detected and reported by users
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Report ID</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Target</TableHead>
-                <TableHead>Reported By</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Severity</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recentScams.map((scam) => (
-                <TableRow key={scam.id}>
-                  <TableCell className="font-medium">{scam.id}</TableCell>
-                  <TableCell className="capitalize">{scam.type}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getSourceIcon(scam.source)}
-                      <span className="capitalize">{scam.source}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="capitalize">{scam.target}</TableCell>
-                  <TableCell>{scam.reportedBy}</TableCell>
-                  <TableCell>{scam.reportedAt}</TableCell>
-                  <TableCell>{getSeverityBadge(scam.severity)}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">View</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          
-          <div className="mt-4 flex justify-center">
-            <Button variant="outline">View All Reports</Button>
+      <Tabs defaultValue="overview" value={selectedTab} onValueChange={setSelectedTab}>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="overview" className="space-y-4 pt-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Risk Distribution</CardTitle>
+                <CardDescription>Proportion of risk levels across all reports</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieChartData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({name, percent}) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                      >
+                        {pieChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Report Sources</CardTitle>
+                <CardDescription>Risk levels by detection method</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={barChartData}
+                      layout="vertical"
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis dataKey="name" type="category" />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="dangerous" fill="#f87171" name="Dangerous" />
+                      <Bar dataKey="suspicious" fill="#facc15" name="Suspicious" />
+                      <Bar dataKey="safe" fill="#4ade80" name="Safe" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
-      
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Scam Types Distribution</CardTitle>
-            <CardDescription>Breakdown of scam categories</CardDescription>
-          </CardHeader>
-          <CardContent className="flex items-center justify-center h-[250px]">
-            {/* In a real app, this would be a chart component */}
-            <div className="flex gap-2 h-full items-end">
-              {["Phishing", "Fake Site", "Malware", "Impersonation", "Ransomware"].map((type, i) => (
-                <div key={i} className="flex flex-col items-center">
-                  <div 
-                    className="bg-pistachio rounded-md w-12" 
-                    style={{ 
-                      height: `${i === 0 ? 150 : i === 1 ? 120 : i === 2 ? 90 : i === 3 ? 60 : 30}px`,
-                      opacity: 0.8 - (i * 0.1)
-                    }}
-                  />
-                  <span className="text-xs mt-2 text-center">{type}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        </TabsContent>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Geographical Distribution</CardTitle>
-            <CardDescription>Top regions affected by scams</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <span className="text-sm font-medium flex-1">United States</span>
-                  <span className="text-sm text-muted-foreground">32%</span>
+        <TabsContent value="reports" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>All Reports</CardTitle>
+              <CardDescription>Complete list of scam reports</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {filteredReports.length === 0 ? (
+                <div className="py-12 text-center">
+                  <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-medium">No reports found</h3>
+                  <p className="text-muted-foreground mt-2">
+                    No scam reports have been submitted in the selected time period.
+                  </p>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2.5">
-                  <div className="bg-pistachio h-2.5 rounded-full" style={{ width: "32%" }}></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Content</TableHead>
+                        <TableHead>Risk Level</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredReports.map((report) => (
+                        <TableRow key={report.id}>
+                          <TableCell className="font-medium flex items-center gap-2">
+                            {getTypeIcon(report.type)}
+                            <span className="capitalize">{report.type}</span>
+                          </TableCell>
+                          <TableCell>{new Date(report.date).toLocaleString()}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">{report.content}</TableCell>
+                          <TableCell>{getRiskBadge(report.type, report.result)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="analytics" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Scam Patterns</CardTitle>
+              <CardDescription>Common patterns detected in scam reports</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={[
+                      { name: 'Phishing', count: 32 },
+                      { name: 'Financial', count: 28 },
+                      { name: 'Identity', count: 23 },
+                      { name: 'Romance', count: 19 },
+                      { name: 'Employment', count: 17 },
+                      { name: 'Lottery', count: 12 },
+                      { name: 'Tech Support', count: 10 },
+                    ]}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#4f46e5" />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <span className="text-sm font-medium flex-1">United Kingdom</span>
-                  <span className="text-sm text-muted-foreground">18%</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2.5">
-                  <div className="bg-pistachio h-2.5 rounded-full" style={{ width: "18%" }}></div>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <span className="text-sm font-medium flex-1">Canada</span>
-                  <span className="text-sm text-muted-foreground">14%</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2.5">
-                  <div className="bg-pistachio h-2.5 rounded-full" style={{ width: "14%" }}></div>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <span className="text-sm font-medium flex-1">Australia</span>
-                  <span className="text-sm text-muted-foreground">11%</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2.5">
-                  <div className="bg-pistachio h-2.5 rounded-full" style={{ width: "11%" }}></div>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <span className="text-sm font-medium flex-1">Germany</span>
-                  <span className="text-sm text-muted-foreground">9%</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2.5">
-                  <div className="bg-pistachio h-2.5 rounded-full" style={{ width: "9%" }}></div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

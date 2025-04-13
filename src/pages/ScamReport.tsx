@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, Copy, Download, Send, Upload, X, CheckCircle, Instagram, AlertTriangle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 type ReportDestination = 
   "email" | "instagram" | "facebook" | "tiktok" | 
@@ -16,10 +17,17 @@ type ReportDestination =
   "discord" | "paypal";
 
 interface ScamReportData {
+  id: string;
   content: string;
   imageUrl?: string | null;
   destination: ReportDestination;
   email?: string;
+  date: string;
+  analysis: {
+    scamType: string;
+    severity: 'low' | 'medium' | 'high';
+    details: string;
+  }
 }
 
 const ScamReport = () => {
@@ -29,6 +37,8 @@ const ScamReport = () => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [reportGenerated, setReportGenerated] = useState(false);
+  const [reportData, setReportData] = useState<ScamReportData | null>(null);
+  const { toast } = useToast();
   
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -41,6 +51,72 @@ const ScamReport = () => {
     reader.readAsDataURL(file);
   };
 
+  const analyzeScamContent = (content: string): { scamType: string; severity: 'low' | 'medium' | 'high'; details: string } => {
+    const contentLower = content.toLowerCase();
+    
+    // Look for patterns to determine scam type
+    const hasFinancial = contentLower.includes('money') || 
+                          contentLower.includes('bank') || 
+                          contentLower.includes('payment') || 
+                          contentLower.includes('bitcoin') ||
+                          contentLower.includes('transfer');
+                          
+    const hasPersonal = contentLower.includes('password') || 
+                        contentLower.includes('login') || 
+                        contentLower.includes('account') ||
+                        contentLower.includes('credentials');
+                        
+    const hasUrgency = contentLower.includes('urgent') || 
+                        contentLower.includes('immediately') || 
+                        contentLower.includes('quickly') ||
+                        contentLower.includes('right now');
+    
+    // Determine scam type
+    let scamType = "General Phishing";
+    if (hasFinancial) {
+      scamType = "Financial Fraud";
+    } else if (contentLower.includes('lottery') || contentLower.includes('winner')) {
+      scamType = "Lottery Scam";
+    } else if (contentLower.includes('inheritance') || contentLower.includes('prince')) {
+      scamType = "Inheritance Scam";
+    } else if (contentLower.includes('love') || contentLower.includes('dating') || contentLower.includes('relationship')) {
+      scamType = "Romance Scam";
+    } else if (contentLower.includes('job') || contentLower.includes('employment') || contentLower.includes('hire')) {
+      scamType = "Employment Scam";
+    }
+    
+    // Determine severity
+    let severity: 'low' | 'medium' | 'high' = 'medium';
+    if ((hasFinancial && hasPersonal) || (hasPersonal && hasUrgency) || (hasFinancial && hasUrgency)) {
+      severity = 'high';
+    } else if (!hasFinancial && !hasPersonal && !hasUrgency) {
+      severity = 'low';
+    }
+    
+    // Generate details
+    let details = `This appears to be a ${scamType.toLowerCase()} targeting users`;
+    if (hasPersonal) {
+      details += " by attempting to steal personal information";
+    }
+    if (hasFinancial) {
+      details += " with the goal of financial theft";
+    }
+    if (hasUrgency) {
+      details += " using urgency tactics to prompt immediate action";
+    }
+    if (contentLower.includes('click')) {
+      details += " through malicious links";
+    } else {
+      details += " through social engineering";
+    }
+    
+    return {
+      scamType,
+      severity,
+      details
+    };
+  };
+
   const handleGenerateReport = () => {
     if (!scamContent && !imagePreview) return;
     
@@ -48,27 +124,100 @@ const ScamReport = () => {
     
     // Simulate API call
     setTimeout(() => {
-      setIsLoading(false);
+      // Create a unique ID for this report
+      const reportId = `report-${Date.now()}`;
+      
+      // Analyze the content
+      const analysis = analyzeScamContent(scamContent);
+      
+      // Create the report data
+      const newReportData: ScamReportData = {
+        id: reportId,
+        content: scamContent,
+        imageUrl: imagePreview,
+        destination,
+        email: destination === 'email' ? email : undefined,
+        date: new Date().toISOString(),
+        analysis
+      };
+      
+      // Save the report data
+      setReportData(newReportData);
       setReportGenerated(true);
+      setIsLoading(false);
+      
+      toast({
+        title: "Report Generated",
+        description: "Your scam report has been successfully created.",
+      });
     }, 2000);
   };
 
   const handleSendReport = () => {
-    // Simulate sending the report
-    alert(`Report sent to ${destination}!`);
+    if (!reportData) return;
+    
+    // Add the report to localStorage for the admin panel
+    const reports = JSON.parse(localStorage.getItem('pistaSecure_scamReports') || '[]');
+    reports.push({
+      type: 'report',
+      content: reportData.content,
+      result: reportData,
+      date: new Date().toISOString(),
+      id: reportData.id
+    });
+    localStorage.setItem('pistaSecure_scamReports', JSON.stringify(reports));
+    
+    toast({
+      title: "Report Submitted",
+      description: `Your report has been sent to ${getDestinationLabel(destination)}`,
+    });
   };
 
   const handleDownloadReport = () => {
-    // Simulate downloading the report
-    alert("Report downloaded!");
+    if (!reportData) return;
+    
+    // Create a blob with the report data
+    const reportBlob = new Blob(
+      [JSON.stringify(reportData, null, 2)],
+      { type: 'application/json' }
+    );
+    
+    // Create a download link
+    const url = URL.createObjectURL(reportBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `scam-report-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    
+    toast({
+      title: "Report Downloaded",
+      description: "Your report has been downloaded as a JSON file.",
+    });
   };
 
   const handleCopyReport = () => {
-    // Simulate copying the report content
-    navigator.clipboard.writeText(
-      `SCAM REPORT\n\nContent: ${scamContent}\nDate: ${new Date().toLocaleDateString()}`
-    );
-    alert("Report copied to clipboard!");
+    if (!reportData) return;
+    
+    // Format the report for clipboard
+    const reportText = `
+SCAM REPORT
+Date: ${new Date(reportData.date).toLocaleString()}
+Type: ${reportData.analysis.scamType}
+Severity: ${reportData.analysis.severity}
+
+Content:
+${reportData.content}
+
+Analysis:
+${reportData.analysis.details}
+    `;
+    
+    navigator.clipboard.writeText(reportText);
+    
+    toast({
+      title: "Report Copied",
+      description: "Report details copied to clipboard",
+    });
   };
 
   const getDestinationLabel = (dest: ReportDestination) => {
